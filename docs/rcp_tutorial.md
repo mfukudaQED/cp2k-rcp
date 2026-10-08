@@ -21,12 +21,12 @@ Implemented and tested settings include:
 
 RCP is defined as
 
-$$
+```math
 \mu_R^\tau(\mathbf r)
 =
 \frac{\varepsilon_{\tau,\mathrm{ew}}(\mathbf r)}
      {n_{\mathrm{ew}}(\mathbf r)}.
-$$
+```
 
 Here:
 
@@ -36,7 +36,7 @@ Here:
 
 The implementation can also calculate the Laplacian-form kinetic-energy density of **all occupied states**:
 
-$$
+```math
 T_e(\mathbf r)
 =
 -\frac14
@@ -46,7 +46,7 @@ T_e(\mathbf r)
 +
 \nabla^2\phi_\mu(\mathbf r)\phi_\nu(\mathbf r)
 \right].
-$$
+```
 
 This all-occupied kinetic-energy density is **not** the same as the energy-window regional energy density used in the RCP numerator.
 
@@ -94,13 +94,13 @@ ENERGY_UPPER [eV]  0.0
 
 approximately selects states in the interval
 
-$$
+```math
 \mu-3\ {\rm eV}
 <
 \varepsilon
 <
 \mu.
-$$
+```
 
 The exact weights are smoothly broadened at the boundaries rather than being a strict step function.
 
@@ -131,12 +131,12 @@ The k-point implementation of the CP2K 2026.2 RCP patch uses the same `&KPOINTS`
 
 At each `\mathbf k`, the calculation uses complex Bloch orbitals and their eigenvalues. The energy-window density is
 
-$$
+```math
 n_{\mathrm{ew}}(\mathbf r)=
 \sum_{\sigma}\sum_{\mathbf k} w_{\mathbf k}
 \sum_n f_{n\mathbf k\sigma}^{\mathrm{ew}}
 \left|\psi_{n\mathbf k\sigma}(\mathbf r)\right|^2,
-$$
+```
 
 where `w_{\mathbf k}` is the normalized k-point weight supplied by CP2K. RKS includes a spin-degeneracy factor of two; UKS assigns a factor of one to each spin channel.
 
@@ -180,7 +180,7 @@ BROADENING_UPPER [eV] 0.001
 
 For an ordinary calculation with integer occupations, the reference for the RCP energy window is
 
-$$
+```math
 \mu
 =
 \frac{
@@ -188,7 +188,7 @@ $$
 +
 \varepsilon_{\rm LUMO}
 }{2}.
-$$
+```
 
 In UKS, first determine across **all spin channels and k points**:
 
@@ -228,7 +228,7 @@ Thus **reference chemical potential = SCF Fermi energy**. This is the natural ch
 
 The energy window is defined by the difference between smooth Fermi functions, not by a discontinuous step function. Conceptually, each KS state has weight
 
-$$
+```math
 w_i
 =
 f(
@@ -242,7 +242,7 @@ f(
 E_{\rm lower},
 \sigma_{\rm lower}
 ).
-$$
+```
 
 The implementation clips the result to the interval [0,1]. A state exactly at a window boundary generally receives a fractional weight when the broadening is finite.
 
@@ -470,15 +470,15 @@ mycalc-RCP-DENSITY-WINDOW1_0.cube
 
 Field:
 
-$$
+```math
 n_{\mathrm{ew}}(\mathbf r).
-$$
+```
 
 Unit:
 
-$$
+```math
 {\rm bohr}^{-3}.
-$$
+```
 
 For closed-shell RKS, the density includes the factor of two for spin degeneracy. Integrating it over the entire simulation domain gives the number of electrons selected by the energy window (up to numerical integration error).
 
@@ -490,7 +490,7 @@ mycalc-RCP-KINETIC-ENERGY-DENSITY1_0.cube
 
 Field:
 
-$$
+```math
 T_e(\mathbf r)
 =
 -\frac14
@@ -500,13 +500,13 @@ T_e(\mathbf r)
 +
 (\nabla^2\phi_\mu)\phi_\nu
 \right].
-$$
+```
 
 Unit:
 
-$$
+```math
 {\rm Hartree}\,{\rm bohr}^{-3}.
-$$
+```
 
 **Important:** This all-occupied Laplacian-form kinetic-energy density is **not** the positive-definite kinetic-energy density `\tau(\mathbf r)`. Neither should it be confused with the energy-window regional energy density below.
 
@@ -518,7 +518,7 @@ mycalc-RCP-REGIONAL-ENERGY-DENSITY1_0.cube
 
 Field:
 
-$$
+```math
 \varepsilon_{\tau,\mathrm{ew}}(\mathbf r)
 =
 \frac18
@@ -534,13 +534,13 @@ P^{\mathrm{ew}}_{\mu\nu}
 \sum_{\mu\nu}
 P^{\mathrm{ew}}_{\mu\nu}
 \nabla\phi_\mu\cdot\nabla\phi_\nu.
-$$
+```
 
 Unit:
 
-$$
+```math
 {\rm Hartree}\,{\rm bohr}^{-3}.
-$$
+```
 
 The window density matrix `P^{ew}` selects the energy range specified by `ENERGY_LOWER/UPPER` and their broadenings.
 
@@ -552,7 +552,7 @@ mycalc-RCP1_0.cube
 
 Field:
 
-$$
+```math
 \mu_R^\tau(\mathbf r)
 =
 \frac{
@@ -560,13 +560,13 @@ $$
 }{
 n_{\mathrm{ew}}(\mathbf r)
 }.
-$$
+```
 
 Unit:
 
-$$
+```math
 {\rm Hartree}.
-$$
+```
 
 The CUBE title also includes
 
@@ -582,7 +582,7 @@ As with other CP2K CUBEs, the `1_0` portion of a filename is iteration-dependent
 
 Since the RCP is a ratio,
 
-$$
+```math
 \mu_R^\tau
 =
 \frac{
@@ -590,7 +590,7 @@ $$
 }{
 n_{\mathrm{ew}}
 },
-$$
+```
 
 it is numerically vulnerable in vacuum and near orbital nodes, where `n_ew → 0`. There, small denominator values can produce very large apparent RCP values or noise.
 
@@ -602,11 +602,11 @@ DENSITY_CUTOFF 1.0E-12
 
 the RCP is set to zero at grid points satisfying
 
-$$
+```math
 n_{\mathrm{ew}}(\mathbf r)
 \le
 10^{-12}.
-$$
+```
 
 This is a **denominator mask applied when computing the RCP ratio**, not a clipping option applied only during visualization.
 
@@ -703,32 +703,32 @@ Verify that three independent electron-count calculations agree.
 
 **Sum of Fermi/window weights:**
 
-$$
+```math
 N_{\mathrm{ew}}
 =
 \sum_i g_s w_i.
-$$
+```
 
 **Density matrix and AO overlap:**
 
-$$
+```math
 N_{\mathrm{ew}}
 =
 {\rm Tr}
 \left[
 P^{\mathrm{ew}}S
 \right].
-$$
+```
 
 **Integral of real-space window density:**
 
-$$
+```math
 N_{\mathrm{ew}}
 =
 \int
 n_{\mathrm{ew}}(\mathbf r)
 d^3r.
-$$
+```
 
 Corresponding output labels:
 
@@ -752,13 +752,13 @@ is sufficiently small for the selected basis, grid, and numerical precision. The
 
 The all-occupied Laplacian-form kinetic-energy density should satisfy
 
-$$
+```math
 \int
 T_e(\mathbf r)
 d^3r
 =
 E_{\rm kin}.
-$$
+```
 
 Inspect:
 
@@ -821,17 +821,17 @@ For surfaces, displaying RCP on an electronic interface may be more informative 
 
 In previous validation work, the Laplacian-form kinetic-energy density isosurface
 
-$$
+```math
 T_e(\mathbf r)
 =
 10^{-5}
-$$
+```
 
 was colored with the regional chemical potential
 
-$$
+```math
 \mu_R^\tau(\mathbf r).
-$$
+```
 
 This requires two field types:
 
@@ -844,14 +844,14 @@ The latter is an example iteration-specific name; adapt the suffix to your outpu
 
 For a historical comparison with OpenMX on the five-chain model, an illustrative color scale was
 
-$$
+```math
 -0.4
 \le
 \mu_R^\tau
 \le
 -0.25
 \ {\rm Ha}.
-$$
+```
 
 The original validation images and CUBEs were stored in the development workspace, `DEV_TREE/local-sham/rcp_validation/visualize/`, and are **not distributed**.
 

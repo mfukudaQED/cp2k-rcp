@@ -1,6 +1,6 @@
-From c2a8ac37133c8b049a360bd82ee99c800789b341 Mon Sep 17 00:00:00 2001
+From 9af8b77da495877bd5d0f74827e348b805d8296d Mon Sep 17 00:00:00 2001
 From: Masahiro Fukuda <mfukudaQED@users.noreply.github.com>
-Date: Thu, 8 Oct 2026 16:14:24 +0900
+Date: Thu, 8 Oct 2026 16:24:50 +0900
 Subject: [PATCH] Add RCP analysis extension to CP2K 2026.2
 
 ---
@@ -1371,7 +1371,7 @@ index 0000000000..8f4904925b
 +For CP2K's underlying GPW and electronic-structure implementation, see the [CP2K documentation](https://manual.cp2k.org/) and [CP2K citation guidelines](https://www.cp2k.org/howto:citing).
 diff --git a/docs/methods/rcp_user_manual.md b/docs/methods/rcp_user_manual.md
 new file mode 100644
-index 0000000000..189f2f2c73
+index 0000000000..6f83271331
 --- /dev/null
 +++ b/docs/methods/rcp_user_manual.md
 @@ -0,0 +1,498 @@
@@ -1610,7 +1610,7 @@ index 0000000000..189f2f2c73
 +$$
 +F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]},\qquad
 +W_{n\mathbf k\sigma}
-+=\operatorname{clip}_{[0,1]}\left[
++=\mathrm{clip}_{[0,1]}\left[
 +F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})
 +-F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}})
 +\right].
@@ -1728,7 +1728,7 @@ index 0000000000..189f2f2c73
 +$$
 +N_{\rm EW}^{\rm weights}
 +\stackrel{?}{=}
-+\operatorname{Tr}[P_{\rm EW}S]
++\mathrm{Tr}[P_{\rm EW}S]
 +\stackrel{?}{=}
 +\int n_{\rm EW}(\mathbf r)\,d^3r .
 +$$
@@ -1773,13 +1773,13 @@ index 0000000000..189f2f2c73
 +The ratio `μ_R^τ = ε_{τ,EW}/n_EW` becomes unstable when `n_EW` approaches zero. Construct a reference mask `Ω` using the window density from the reference calculation and use **the same set of grid points** for all meshes.
 +
 +$$
-+\Delta_{\rm RMS}(\mathcal K,\mathcal K_{\rm ref})
++\Delta_{\rm RMS}(\mathcal{K},\mathcal{K}_{\mathrm{ref}})
 +=
 +\sqrt{\frac{1}{|\Omega|}
 +\sum_{\mathbf r_i\in\Omega}
 +\left[
-+\mu_R^{\tau,\mathcal K}(\mathbf r_i)
-+-\mu_R^{\tau,\mathcal K_{\rm ref}}(\mathbf r_i)
++\mu_R^{\tau,\mathcal{K}}(\mathbf r_i)
++-\mu_R^{\tau,\mathcal{K}_{\mathrm{ref}}}(\mathbf r_i)
 +\right]^2}.
 +$$
 +

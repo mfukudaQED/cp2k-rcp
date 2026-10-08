@@ -217,9 +217,9 @@ Distinguish **which electronic states you wish to select** from **where you wish
 
 Window boundaries are measured **relative to a reference chemical potential**, not from an absolute Kohn–Sham eigenvalue origin:
 
-$$
+```math
 E_{\mathrm{lower}} \le \varepsilon_{n\mathbf k\sigma}-\mu \le E_{\mathrm{upper}}.
-$$
+```
 
 - **No SCF smearing:** form `μ=(ε_HOMO+ε_LUMO)/2` from the global HOMO and LUMO across all spin channels and k points.
 - **Fermi–Dirac SCF smearing:** use the Fermi energy determined by CP2K's SCF calculation as `μ`.
@@ -230,14 +230,14 @@ Thus `ENERGY_LOWER [eV] -3.0` and `ENERGY_UPPER [eV] 0.0` select orbital compone
 
 The window selects each KS eigenstate using the difference between two smoothed Fermi functions:
 
-$$
+```math
 F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]},\qquad
 W_{n\mathbf k\sigma}
-=\operatorname{clip}_{[0,1]}\left[
+=\mathrm{clip}_{[0,1]}\left[
 F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})
 -F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}})
 \right].
-$$
+```
 
 The clipping operation restricts values numerically to [0,1]. **SCF electronic-temperature smearing and RCP's `BROADENING_LOWER/UPPER` are independent.** States near the window edges receive fractional window weights; a noninteger window electron count is therefore not inherently an error.
 
@@ -245,38 +245,38 @@ The clipping operation restricts values numerically to [0,1]. **SCF electronic-t
 
 The spin-summed energy-window electron density is
 
-$$
+```math
 n_{\mathrm{EW}}(\mathbf r)=
 \sum_{\sigma,n,\mathbf k}
 w_{\mathbf k}\,g_{\sigma}W_{n\mathbf k\sigma}\,
 |\psi_{n\mathbf k\sigma}(\mathbf r)|^2.
-$$
+```
 
 For RKS, `g=2` accounts for spin degeneracy; each spin channel in UKS has `g=1`.
 
 Given the energy-window density matrix `P_EW`, define the Laplacian-form and gradient-form kinetic-energy densities:
 
-$$
+```math
 t_L^{\rm EW}(\mathbf r)
 =-\frac14\sum_{\mu\nu}P^{\rm EW}_{\mu\nu}
 \bigl[\phi_\mu\nabla^2\phi_\nu+(\nabla^2\phi_\mu)\phi_\nu\bigr],
-$$
+```
 
-$$
+```math
 t_G^{\rm EW}(\mathbf r)
 =\frac12\sum_{\mu\nu}P^{\rm EW}_{\mu\nu}
 \,\nabla\phi_\mu\cdot\nabla\phi_\nu.
-$$
+```
 
 The implemented regional energy density and RCP are
 
-$$
+```math
 \varepsilon_{\tau,\rm EW}(\mathbf r)
 =-\frac12\left[t_L^{\rm EW}(\mathbf r)+t_G^{\rm EW}(\mathbf r)\right],
 \qquad
 \mu_R^\tau(\mathbf r)
 =\frac{\varepsilon_{\tau,\rm EW}(\mathbf r)}{n_{\rm EW}(\mathbf r)}.
-$$
+```
 
 **Grid points with `n_EW ≤ DENSITY_CUTOFF` have their RCP set to zero.**
 
@@ -348,13 +348,13 @@ grep '^ RCP|' output.out
 
 ### 7.1 Three independent electron-count checks
 
-$$
+```math
 N_{\rm EW}^{\rm weights}
 \stackrel{?}{=}
-\operatorname{Tr}[P_{\rm EW}S]
+\mathrm{Tr}[P_{\rm EW}S]
 \stackrel{?}{=}
 \int n_{\rm EW}(\mathbf r)\,d^3r .
-$$
+```
 
 **Check agreement between all three evaluations.** The number of electrons in the selected energy window need not equal the total number of valence electrons.
 
@@ -369,9 +369,9 @@ These values **depend on the system, structure, basis, k-point sampling, window,
 
 ### 7.2 Independent kinetic-energy check
 
-$$
+```math
 \int T_e(\mathbf r)\,d^3r \stackrel{?}{=} E_{\rm kinetic}^{\rm CP2K}.
-$$
+```
 
 For a complete integral with suitable boundary conditions, the window Laplacian- and gradient-form kinetic-energy integrals should also agree. Investigate the SCF state, integration grid, boundary conditions, and k-point transformation if the discrepancy is unusually large.
 
@@ -395,16 +395,16 @@ Track **more than the total energy**: compare window electron count, spatial win
 
 The ratio `μ_R^τ = ε_{τ,EW}/n_EW` becomes unstable when `n_EW` approaches zero. Construct a reference mask `Ω` using the window density from the reference calculation and use **the same set of grid points** for all meshes.
 
-$$
-\Delta_{\rm RMS}(\mathcal K,\mathcal K_{\rm ref})
+```math
+\Delta_{\rm RMS}(\mathcal{K},\mathcal{K}_{\mathrm{ref}})
 =
 \sqrt{\frac{1}{|\Omega|}
 \sum_{\mathbf r_i\in\Omega}
 \left[
-\mu_R^{\tau,\mathcal K}(\mathbf r_i)
--\mu_R^{\tau,\mathcal K_{\rm ref}}(\mathbf r_i)
+\mu_R^{\tau,\mathcal{K}}(\mathbf r_i)
+-\mu_R^{\tau,\mathcal{K}_{\mathrm{ref}}}(\mathbf r_i)
 \right]^2}.
-$$
+```
 
 Test mask thresholds such as 0.1% and 5% of the maximum window density. The densest calculated k mesh is only a **provisional reference**; a zero RMS difference to itself is not evidence that the physical RCP field has converged.
 
