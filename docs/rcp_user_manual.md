@@ -1,59 +1,51 @@
-# CP2K RCP 利用マニュアル（GPW・共線スピン）
+# CP2K RCP User Manual (GPW and Collinear Spin)
 
-**対象:** CP2K 2026.2 + RCP patch、開発ブランチ `rcp-development`
+**Applies to:** CP2K 2026.2 with the RCP patch (development branch `rcp-development`).
+**Updated:** 2026-10-08.
 
-**更新:** 2026-10-08
-
-> 本書は実際の計算・出力・検証のためのマニュアル。数式の詳細や実装履歴は [RCP詳細チュートリアル](rcp_tutorial.md) を参照。
-> **非共線スピン・SOC・ZORA/DKHなどの相対論計算は保留中**であり、本書の使用対象外。
+> This is a practical guide to running RCP calculations, reading the output, and verifying the results. For additional mathematical and implementation details, see the [detailed RCP tutorial](rcp_tutorial.md).
 >
-> **公開配布版について:** このリポジトリはCP2K本体から独立したpatch/例題配布パッケージ。
-> `/path/to/cp2k-rcp` はこのリポジトリのclone先、`/path/to/patched-cp2k` は
-> パッチを適用・ビルドした別のCP2Kソースツリーを意味する。
-> 詳しい適用方法は[トップページ](../README.md)を参照。
-> 大規模な5chain/diamond検証データや計算済みCubeは配布していない。
+> **Noncollinear spin, spin–orbit coupling (SOC), and relativistic approaches such as ZORA and DKH are not currently supported by the RCP implementation.**
+>
+> **About the public distribution:** This repository is a standalone patch, documentation, and input-example bundle, separate from the CP2K source tree. `/path/to/cp2k-rcp` refers to a clone of this distribution, while `/path/to/patched-cp2k` refers to a separate CP2K source tree on which the patch has been applied and built. See the [main README](../README.md) for installation. Large five-chain and diamond benchmark datasets and precomputed CUBE files are not distributed.
 
-### このマニュアルの使い方
+### How to use this manual
 
-**すぐ計算したい場合は2・3節**（実行・入力）、設定の意味を調べる場合は**4・5節**、
-Cubeの物理的意味と解析は**6～8節**、既存サンプルは**9節**、
-問題が起きた場合は**10節**を参照する。
+Sections **2–3** cover the first calculation and input syntax; **4–5** explain settings and definitions; **6–8** cover CUBE files, diagnostics, and convergence; **9** identifies examples; **10** addresses problems; and **11** is a pre-run checklist.
 
-## 1. 対応機能と前提条件
+## 1. Supported methods and prerequisites
 
-| 計算条件 | 対応状況 | 補足 |
+| Calculation setting | Status | Notes |
 |---|---|---|
-| QUICKSTEP / GPW | 対応 | 主にGTH擬ポテンシャル・PBEで検証 |
-| Γ点・非周期分子 | 対応 | H₂、ベンゼンなど |
-| Γ点・周期系 | 対応 | 5chainなど |
-| 複数k点 | 対応 | 複素Bloch軌道、対称性縮約、MPIグループ |
-| RKS（スピン非分極） | 対応 | スピン縮退2を考慮 |
-| collinear UKS（スピン分極） | 対応 | α/βを合計して出力 |
-| Fermi–Dirac smearing | 対応 | 300 Kの表面モデルで動作を確認。金属一般での精度保証ではない |
-| GAPW / 全電子 / ZORA / DKH | **未対応** | RCPを要求すると明示的に停止 |
-| 非共線・SOC・スピン螺旋 | **未対応** | 今回のマニュアル対象外 |
-| Hybrid / HF | 未検証 | 別途検証が必要 |
+| QUICKSTEP / GPW | Supported | Mainly validated with GTH pseudopotentials and PBE |
+| Gamma point, nonperiodic molecules | Supported | Including H₂ and benzene |
+| Gamma point, periodic systems | Supported | Including a historical five-chain benchmark |
+| Multiple k points | Supported | Complex Bloch orbitals, symmetry reduction, and MPI k-point groups |
+| Restricted Kohn–Sham (RKS) | Supported | Includes the factor of two for spin degeneracy |
+| Collinear unrestricted Kohn–Sham (UKS) | Supported | Alpha and beta channels are summed |
+| Fermi–Dirac smearing | Supported | Tested on a surface model at 300 K; this does not establish accuracy for all metals |
+| GAPW / all-electron / ZORA / DKH | **Not supported** | Requesting RCP for these settings triggers an explicit abort |
+| Noncollinear spin / SOC / spin spirals | **Not supported** | Outside the scope of the present manual |
+| Hybrid functionals / Hartree–Fock | Not validated | Requires separate validation |
 
-RCPは**収束後のDFT電子状態を解析する機能**。SCF収束や構造最適化の手法を置き換えるものではない。
+RCP is a **post-SCF analysis of a converged DFT electronic state**. It is not a substitute for SCF convergence or geometry optimization.
 
-### 利用するバイナリ
+### Selecting the correct executable
 
-パッチ適用・ビルド後の環境（パスは各自のCP2Kインストール先に変更）:
+After applying and compiling the patch, load your patched CP2K environment (adjust the path):
 
 ~~~bash
 source /path/to/patched-cp2k/install/cp2k_env
 which cp2k.psmp
 ~~~
 
-標準配布のCP2K 2026.2に開発版RCP入力があるとは限らない。
-**パッチ適用済みバイナリ**を使い、ビルド手順は[公開README](../README.md)と
-CP2Kの公式ビルドガイドに従う。
+An unmodified CP2K 2026.2 binary cannot be assumed to recognize this experimental RCP input. Use the **patched binary** and follow the [installation README](../README.md) and the official CP2K build instructions.
 
-## 2. shamで最初のRCP計算を実行する
+## 2. Run your first RCP calculation on sham
 
-以下はbash用コマンド。元のテストを上書きせず別の作業場所で実行する。
+The following are Bash commands. Use a separate working directory so that reference inputs are not overwritten.
 
-### 2.1 Γ点・H₂（RKS）
+### 2.1 Gamma-point H₂ (RKS)
 
 ~~~bash
 cd /path/to/cp2k-rcp
@@ -65,14 +57,14 @@ sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
   ../../tools/run_cp2k_sham.slurm H2-rcp.inp h2_gamma.out
 squeue -u "$USER"
 
-# 終了後に確認
+# Inspect after the job finishes
 grep 'SCF run converged' h2_gamma.out
 grep 'PROGRAM ENDED AT' h2_gamma.out
 grep '^ RCP|' h2_gamma.out
 ls -lh *.cube
 ~~~
 
-### 2.2 複数k点・H₂（RKS）
+### 2.2 Multiple-k-point H₂ (RKS)
 
 ~~~bash
 cd /path/to/cp2k-rcp
@@ -83,15 +75,13 @@ sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
   ../../tools/run_cp2k_sham.slurm H2-rcp-kpoints.inp h2_kpoints.out
 ~~~
 
-この入力はMonkhorst–Pack `2 1 1`、全k点格子、複素Bloch軌道を使う。どちらも正常終了した既存回帰テストの完全入力である。
+The latter input uses a full Monkhorst–Pack `2 1 1` k-point grid with complex Bloch orbitals. Both inputs are complete regression-test cases and have been run to normal completion.
 
-**注:** 2つのH₂回帰テストはファイル数を抑えるため `PRINT_DENSITY_WINDOW F` としてある。
-そのため既定の実行では窓密度Cubeを作らず、**3種類のCube**を出力する。窓電子密度を解析したい場合は
-コピー先の入力で `PRINT_DENSITY_WINDOW T` に変更する。`PRINT_RCP T` なら窓密度の数値積分は引き続き標準出力に表示される。
+**Important:** These two H₂ inputs intentionally set `PRINT_DENSITY_WINDOW F` to reduce output volume. They therefore produce **three CUBE field types**, not four. Change the setting to `T` in your copied input if you also want the window-density CUBE. With `PRINT_RCP T`, the window-density numerical integral is nevertheless reported in the standard output.
 
-### 2.3 sham固有のMPI設定
+### 2.3 sham-specific MPI settings
 
-`tools/run_cp2k_sham.slurm` はSlurm用バッチスクリプトで、MPI起動に `srun` ではなく `mpiexec` を使う。実際の実行部分:
+The supplied `tools/run_cp2k_sham.slurm` uses `mpiexec` rather than `srun` to launch MPI. Its essential execution commands are:
 
 ~~~bash
 export I_MPI_COLL_EXTERNAL=no
@@ -100,20 +90,20 @@ export OMP_NUM_THREADS=1
 mpiexec -n "$SLURM_NTASKS" cp2k.psmp -i input.inp -o output.out
 ~~~
 
-この起動方法は**Slurmジョブ内部で使用**する。ランク数・スレッド数・実行時間は通常のSlurm設定に従って調整する。上記はMPI 2ランク・1スレッドの単純な場合を想定した抜粋。
+Run these commands **inside a Slurm allocation**. Adjust the number of MPI ranks, OpenMP threads, and wall time through the Slurm options. The excerpt illustrates a simple two-rank, one-thread-per-rank setup.
 
-## 3. 入力ファイルの書き方
+## 3. Writing a CP2K input
 
-### 3.1 RCPを有効にする
+### 3.1 Enabling RCP
 
-通常のCP2K入力で `&FORCE_EVAL / &DFT / &PRINT` の中に `&RCP ON` を入れる。
+Insert `&RCP ON` under `&FORCE_EVAL / &DFT / &PRINT` in a normal CP2K input:
 
 ~~~text
 &FORCE_EVAL
   METHOD QUICKSTEP
   &DFT
-    ! BASIS_SET_FILE_NAME、POTENTIAL_FILE_NAME、
-    ! MGRID、SCF、XCなど通常のDFT設定をここに書く
+    ! Add the normal BASIS_SET_FILE_NAME, POTENTIAL_FILE_NAME,
+    ! MGRID, SCF, XC, and other DFT settings here.
     &PRINT
       &RCP ON
         ENERGY_LOWER [eV] -3.0
@@ -135,11 +125,11 @@ mpiexec -n "$SLURM_NTASKS" cp2k.psmp -i input.inp -o output.out
 &END FORCE_EVAL
 ~~~
 
-これは**RCPの挿入箇所を示す抜粋**であり単独では実行できない。完全入力は `examples/h2/`、`examples/benzene/`、`examples/c2h5/` にある。
+**This fragment only shows where to place the RCP section; it is not a complete runnable input.** Complete examples are available in `examples/h2/`, `examples/benzene/`, and `examples/c2h5/`.
 
-### 3.2 RKS / UKS
+### 3.2 RKS and UKS
 
-共線UKSの例（doublet）:
+Example of a collinear UKS doublet:
 
 ~~~text
 &DFT
@@ -149,13 +139,13 @@ mpiexec -n "$SLURM_NTASKS" cp2k.psmp -i input.inp -o output.out
 &END DFT
 ~~~
 
-検証済みの開殻分子の完全入力: `examples/c2h5/c2h5.inp`。k点でUKS経路を通す回帰試験: `examples/h2/H2-rcp-kpoints-uks.inp`（UKS singlet）。
+The validated open-shell molecular example is `examples/c2h5/c2h5.inp`. The k-point UKS code-path regression input is `examples/h2/H2-rcp-kpoints-uks.inp` (an artificial UKS singlet).
 
-**RCPの4種類のCubeは、いずれもα/βスピン成分を合算した量。** スピン分解RCP Cubeの出力機能ではない。
+**All four RCP CUBE field types contain sums over alpha and beta spin channels.** They are not spin-resolved RCP output.
 
-### 3.3 Γ点 / 複数k点
+### 3.3 Gamma point versus multiple k points
 
-Γ点専用であれば `&KPOINTS` を省略する。例えば4×4×1を使う場合:
+Omit `&KPOINTS` for a Gamma-point-only calculation. For example, to request a `4×4×1` grid:
 
 ~~~text
 &KPOINTS
@@ -166,80 +156,79 @@ mpiexec -n "$SLURM_NTASKS" cp2k.psmp -i input.inp -o output.out
 &END KPOINTS
 ~~~
 
-- `FULL_GRID OFF` + `SYMMETRY ON`: 対称性を使ってk点を縮約する。
-- `FULL_GRID ON` + `SYMMETRY OFF`: 参照計算として全格子を扱う。
-- `PARALLEL_GROUP_SIZE 1`: k点MPIグループの動作検証例がある。
-- 明示した `1 1 1` k点と、`&KPOINTS`なしのΓ点では内部処理が異なる。両経路のRCP整合性は数値的に検証済みだが、ビット単位の一致を仮定しない。
+- `FULL_GRID OFF` with `SYMMETRY ON`: use crystal symmetry to reduce the k-point set.
+- `FULL_GRID ON` with `SYMMETRY OFF`: use the entire grid, for example as an independent reference.
+- `PARALLEL_GROUP_SIZE 1`: a regression case exercises the k-point MPI-group path.
+- An explicitly specified `1 1 1` grid and an omitted `&KPOINTS` section follow distinct internal execution paths. Their RCP values have been checked for numerical consistency, but **bitwise agreement is not guaranteed**.
 
-### 3.4 セル・擬ポテンシャル
+### 3.4 Simulation cell and pseudopotentials
 
-分子系では `&CELL / PERIODIC NONE` と `&POISSON / PERIODIC NONE` を整合させる。スラブ系では、十分な真空を持つ3D周期セルに `k_x k_y 1` を設定する例がある。実際のPoisson解法・真空厚・双極子補正は通常のCP2K計算として適切に選択すること。
+For isolated molecules, set `&CELL / PERIODIC NONE` consistently with `&POISSON / PERIODIC NONE`. For slabs, an illustrative approach is a three-dimensionally periodic supercell with sufficient vacuum and a `k_x k_y 1` sampling mesh. Select the actual Poisson solver, vacuum thickness, and dipole correction according to ordinary CP2K electrostatics requirements.
 
-GPW/GTH擬ポテンシャルで求めるRCPの電子密度は**価電子密度**であり、GAPWの全電子密度とは異なる。
+With GPW and GTH pseudopotentials, the density used for RCP is the **valence-electron density**, not the all-electron density of GAPW.
 
+## 4. Input keywords and suggested settings
 
-## 4. 各キーワードと推奨設定
+The following defaults have been checked against `src/input_cp2k_print_dft.F` in the patched CP2K source. Place every keyword under `&DFT / &PRINT / &RCP`.
 
-下記は **`src/input_cp2k_print_dft.F` の定義を照合したデフォルト値**。すべて `&DFT / &PRINT / &RCP` の内側で設定する。
-
-| キーワード | デフォルト | 役割 |
+| Keyword | Default | Meaning |
 |---|---:|---|
-| `ENERGY_LOWER` | −3.0 eV | 基準化学ポテンシャルから測った窓の下端 |
-| `ENERGY_UPPER` | 0.0 eV | 同じく窓の上端 |
-| `BROADENING_LOWER` | 0.001 eV | 下端のFermi関数の広がり |
-| `BROADENING_UPPER` | 0.001 eV | 上端のFermi関数の広がり |
-| `EPS_FILTER` | 1.0×10⁻¹⁴ | Γ点での疎行列演算のフィルタ閾値 |
-| `DENSITY_CUTOFF` | 1.0×10⁻¹² a.u. | RCPの分母に用いる窓電子密度の閾値 |
-| `PRINT_DENSITY_WINDOW` | T | 窓電子密度Cube |
-| `PRINT_KINETIC_ENERGY_DENSITY` | T | 全占有電子のLaplacian型運動エネルギー密度Cube |
-| `PRINT_REGIONAL_ENERGY_DENSITY` | T | 窓選択後の領域エネルギー密度Cube |
-| `PRINT_RCP` | T | RCP Cube |
-| `MPI_IO` | T | Cube出力のMPI-I/O |
-| `STRIDE` | 1 1 1 | CubeのX/Y/Z方向の間引き |
+| `ENERGY_LOWER` | −3.0 eV | Lower energy-window boundary relative to reference chemical potential |
+| `ENERGY_UPPER` | 0.0 eV | Upper energy-window boundary relative to the same reference |
+| `BROADENING_LOWER` | 0.001 eV | Fermi-function broadening at the lower boundary |
+| `BROADENING_UPPER` | 0.001 eV | Fermi-function broadening at the upper boundary |
+| `EPS_FILTER` | 1.0×10⁻¹⁴ | Filtering threshold used in Gamma-point sparse-matrix operations |
+| `DENSITY_CUTOFF` | 1.0×10⁻¹² a.u. | Threshold for the window-density denominator of the RCP ratio |
+| `PRINT_DENSITY_WINDOW` | T | Write the energy-window electron-density CUBE |
+| `PRINT_KINETIC_ENERGY_DENSITY` | T | Write the all-occupied Laplacian-form kinetic-energy density |
+| `PRINT_REGIONAL_ENERGY_DENSITY` | T | Write the energy-window regional energy density |
+| `PRINT_RCP` | T | Write the RCP CUBE |
+| `MPI_IO` | T | Use MPI-I/O to write CUBE files |
+| `STRIDE` | 1 1 1 | Sampling stride in the X, Y, Z directions |
 
-エネルギー窓はデフォルトに頼らず、特に **`[eV]` を明記**する。
+Set the energy window explicitly rather than relying on defaults; **always specify the energy unit, preferably `[eV]`**.
 
-### 用途別の実用設定
+### Practical example settings
 
-| 用途 | 窓の例 | broadeningの例 | density cutoff | 出力 |
+| Purpose | Example window | Example broadening | Density cutoff | Outputs |
 |---|---|---|---|---|
-| 絶縁体・分子の狭い窓 | −3～0 eV | 0.001 eV | 1×10⁻¹² | 4種類、`STRIDE 1 1 1` |
-| 表面のRCP解析 | −3～0 eV | 0.05 eV | 1×10⁻⁷ | 電子密度・RCP・領域エネルギー、必要なら運動エネルギー |
-| near-metallic探索 | −1～0 eV | 0.01 eV | 系に応じて調整 | まず窓密度とRCPを同時出力 |
-| 出力容量の節約 | 目的に応じる | 同上 | 同上 | `STRIDE 2 2 2`、不要なCubeをF |
+| Narrow window in a molecule/insulator | −3 to 0 eV | 0.001 eV | 1×10⁻¹² | All four fields; `STRIDE 1 1 1` |
+| Surface RCP analysis | −3 to 0 eV | 0.05 eV | 1×10⁻⁷ | Density, RCP, regional energy; kinetic density as required |
+| Near-metallic exploration | −1 to 0 eV | 0.01 eV | System-dependent | Start by saving both window density and RCP |
+| Reduce CUBE storage | Application-dependent | As appropriate | As appropriate | `STRIDE 2 2 2` and `F` for unwanted fields |
 
-これらは**設定例であり普遍的な推奨値ではない**。窓幅・broadening・閾値によるRCP変化も収束検証の対象になる。
+**These are illustrative values, not universal recommendations.** Converge the RCP field with respect to window width, broadening, and masking threshold.
 
-- `ENERGY_LOWER` は必ず `ENERGY_UPPER` より小さくする。
-- `BROADENING_LOWER` と `BROADENING_UPPER` は正にする。
-- `PRINT_RCP T` の場合、分母である窓密度と分子である領域エネルギー密度は、各CubeをFにしても内部で計算される。
-- `DENSITY_CUTOFF` を大きくすると真空・節近傍で数値の不安定な領域をより強くゼロ化する。**Cubeの可視化時だけに作用する閾値ではない。**
-- `EPS_FILTER` は主にΓ点の密度行列構築・直交化で用いる閾値。k点経路の窓占有を制御するパラメータではない。
-- `MPI_IO F` はMPI並列計算を無効化する意味ではない。**Cubeの出力方法**を切り替える設定である。
-- `STRIDE` はCube出力の空間サンプリングを間引く。SCFや内部のRCP場そのものを粗いグリッドで再計算するものではない。
+- `ENERGY_LOWER` must be strictly smaller than `ENERGY_UPPER`.
+- Both `BROADENING_LOWER` and `BROADENING_UPPER` must be positive.
+- With `PRINT_RCP T`, the numerator and denominator of the RCP ratio are evaluated internally even if their individual CUBE output flags are `F`.
+- Increasing `DENSITY_CUTOFF` masks more numerically unstable near-vacuum and orbital-node regions by setting RCP to zero. **It is not merely a plotting threshold.**
+- `EPS_FILTER` primarily controls filtering during the Gamma-point density-matrix construction and orthogonalization; it does not set the window occupations in the k-point implementation.
+- `MPI_IO F` changes the **CUBE output method**; it does not disable MPI execution of the SCF calculation.
+- `STRIDE` subsamples the written CUBE fields, but does not recompute the SCF or the internal RCP field on a coarser grid.
 
-### 設定する前に決めること
+### Before choosing the window
 
-**「どの電子状態を見たいか」**と**「RCPをどこに表示したいか」**を分けて考える。例えばダングリングボンドの空間分布と表面への吸着位置を比較したい場合、まず窓電子密度を確認して目的の軌道が十分含まれているかを見て、次にRCPと運動エネルギー密度を可視化する。
+Distinguish **which electronic states you wish to select** from **where you wish to display the resulting RCP**. To relate dangling-bond distributions to adsorption sites, inspect the window electron density first to ensure the relevant orbitals are included, then visualize the RCP and kinetic-energy density.
 
-## 5. RCPの定義と窓占有
+## 5. Definition of RCP and window occupations
 
-### 5.1 基準準位
+### 5.1 Reference energy
 
-RCPでは窓を**絶対KSエネルギーではなく基準化学ポテンシャルに対する相対値**で指定する。
+Window boundaries are measured **relative to a reference chemical potential**, not from an absolute Kohn–Sham eigenvalue origin:
 
 $$
 E_{\mathrm{lower}} \le \varepsilon_{n\mathbf k\sigma}-\mu \le E_{\mathrm{upper}}.
 $$
 
-- **SCF smearingなし:** 全スピン・全k点のHOMOとLUMOから、`μ=(ε_HOMO+ε_LUMO)/2` を求める。
-- **SCF Fermi–Dirac smearingあり:** CP2KのSCFが求めたFermiエネルギーを `μ` とする。
+- **No SCF smearing:** form `μ=(ε_HOMO+ε_LUMO)/2` from the global HOMO and LUMO across all spin channels and k points.
+- **Fermi–Dirac SCF smearing:** use the Fermi energy determined by CP2K's SCF calculation as `μ`.
 
-したがって `ENERGY_LOWER [eV] -3.0` と `ENERGY_UPPER [eV] 0.0` は、基準準位からおよそ−3 eV～0 eVの軌道成分を選ぶことを意味する。
+Thus `ENERGY_LOWER [eV] -3.0` and `ENERGY_UPPER [eV] 0.0` select orbital components approximately between −3 eV and 0 eV relative to the reference.
 
-### 5.2 滑らかなエネルギー窓
+### 5.2 Smooth energy-window weights
 
-各KS固有状態に対して、窓端を滑らかにしたFermi関数の差
+The window selects each KS eigenstate using the difference between two smoothed Fermi functions:
 
 $$
 F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]},\qquad
@@ -247,27 +236,25 @@ W_{n\mathbf k\sigma}
 =\operatorname{clip}_{[0,1]}\left[
 F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})
 -F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}})
-\right]
+\right].
 $$
 
-を窓占有の重みとして使う。`clip` は数値を0～1に収める処理である。
+The clipping operation restricts values numerically to [0,1]. **SCF electronic-temperature smearing and RCP's `BROADENING_LOWER/UPPER` are independent.** States near the window edges receive fractional window weights; a noninteger window electron count is therefore not inherently an error.
 
-SCFの電子温度と、`BROADENING_LOWER/UPPER` **は別のもの**。窓の端に近い準位は部分的な窓占有となるため、窓電子数が整数にならなくても異常ではない。
+### 5.3 Real-space quantities
 
-### 5.3 出力する物理量
-
-スピン合計の窓電子密度は
+The spin-summed energy-window electron density is
 
 $$
 n_{\mathrm{EW}}(\mathbf r)=
 \sum_{\sigma,n,\mathbf k}
 w_{\mathbf k}\,g_{\sigma}W_{n\mathbf k\sigma}\,
-|\psi_{n\mathbf k\sigma}(\mathbf r)|^2
+|\psi_{n\mathbf k\sigma}(\mathbf r)|^2.
 $$
 
-である。RKSは `g=2`、UKSは各スピンチャネルで `g=1`。
+For RKS, `g=2` accounts for spin degeneracy; each spin channel in UKS has `g=1`.
 
-窓密度行列 `P_EW` に対して、Laplacian型とgradient型の運動エネルギー密度を
+Given the energy-window density matrix `P_EW`, define the Laplacian-form and gradient-form kinetic-energy densities:
 
 $$
 t_L^{\rm EW}(\mathbf r)
@@ -278,10 +265,10 @@ $$
 $$
 t_G^{\rm EW}(\mathbf r)
 =\frac12\sum_{\mu\nu}P^{\rm EW}_{\mu\nu}
-\,\nabla\phi_\mu\cdot\nabla\phi_\nu
+\,\nabla\phi_\mu\cdot\nabla\phi_\nu.
 $$
 
-と書くと、実装した領域エネルギー密度とRCPは
+The implemented regional energy density and RCP are
 
 $$
 \varepsilon_{\tau,\rm EW}(\mathbf r)
@@ -291,36 +278,35 @@ $$
 =\frac{\varepsilon_{\tau,\rm EW}(\mathbf r)}{n_{\rm EW}(\mathbf r)}.
 $$
 
-**`n_EW ≤ DENSITY_CUTOFF` の格子点はRCPを0に設定する。**
+**Grid points with `n_EW ≤ DENSITY_CUTOFF` have their RCP set to zero.**
 
-`PRINT_KINETIC_ENERGY_DENSITY` が出力する `T_e` は、ここで使う窓選択後の `t_L^EW` ではなく、**全占有状態**に対応したLaplacian型運動エネルギー密度。RCPの分子と混同しないこと。
+The output `T_e` from `PRINT_KINETIC_ENERGY_DENSITY` is the Laplacian-form kinetic-energy density for **all occupied states**, not the window-selected `t_L^EW`. Do not confuse this field with the numerator of the RCP ratio.
 
+## 6. Reading results and CUBE files
 
-## 6. 計算結果・Cubeの読み方
+For `&GLOBAL / PROJECT mycalc`, representative filenames are shown below. Suffixes such as `1_0` depend on CP2K iteration numbering; **do not hard-code them into analysis scripts**.
 
-`&GLOBAL / PROJECT mycalc` を指定し、RCPを出力した場合、代表的なファイル名は次のとおり。末尾の `1_0` などはCP2Kの反復番号に依存するため、固定文字列として解析スクリプトに埋め込まないこと。
-
-| 出力キーワード | 代表的なCubeファイル | 物理量 | Cube値の単位 |
+| Output keyword | Representative CUBE file | Field | Unit |
 |---|---|---|---|
-| `PRINT_DENSITY_WINDOW T` | `mycalc-RCP-DENSITY-WINDOW1_0.cube` | 窓電子密度 `n_EW(r)` | bohr⁻³ |
-| `PRINT_KINETIC_ENERGY_DENSITY T` | `mycalc-RCP-KINETIC-ENERGY-DENSITY1_0.cube` | 全占有のLaplacian型 `T_e(r)` | Ha bohr⁻³ |
+| `PRINT_DENSITY_WINDOW T` | `mycalc-RCP-DENSITY-WINDOW1_0.cube` | Window electron density `n_EW(r)` | bohr⁻³ |
+| `PRINT_KINETIC_ENERGY_DENSITY T` | `mycalc-RCP-KINETIC-ENERGY-DENSITY1_0.cube` | All-occupied Laplacian-form `T_e(r)` | Ha bohr⁻³ |
 | `PRINT_REGIONAL_ENERGY_DENSITY T` | `mycalc-RCP-REGIONAL-ENERGY-DENSITY1_0.cube` | `ε_{τ,EW}(r)` | Ha bohr⁻³ |
 | `PRINT_RCP T` | `mycalc-RCP1_0.cube` | `μ_R^τ(r)` | Ha |
 
-RCPの単位は **Hartree**。eVに直す場合はCubeの数値に約 **27.211386** を掛ける。Cubeヘッダの格子ベクトルと原子座標の基本単位はbohrである（CP2Kの出力形式に依存するヘッダ仕様を確認すること）。
+The RCP field is in **Hartree**. Multiply by approximately **27.211386** to obtain eV. CUBE header coordinates and grid vectors conventionally use bohr; always confirm the header conventions of the generated file.
 
-4種類を出す際は、同じSCF計算で作られるため共通の実空間グリッドを持つ。窓密度・領域エネルギー密度・RCPを組み合わせる際は、**同じ計算・同じ`STRIDE`・同じ反復番号**のファイルを使う。
+The four fields from the same SCF calculation share a real-space grid. Combine only fields corresponding to the **same calculation, `STRIDE`, and iteration index**.
 
-### 6.1 典型的な使い方
+### 6.1 Common visualization and analysis approaches
 
-- **RCPの空間分布を可視化:** `*-RCP1_0.cube` を可視化ソフトに読み込む。
-- **電子的表面上でRCPを着色:** `T_e(r)` の等値面を作り、`μ_R^τ(r)` をカラーマップとして表示する。使用する等値面と色範囲は明記する。
-- **比の信頼性を評価:** `n_EW(r)` も出力し、真空・軌道節など窓電子密度が極小の場所を解析から除く。
-- **局所RCPと電子密度を比較:** Cubeを共通座標上で表示する。最大・最小値だけの比較は避ける。
+- **Map the spatial RCP:** Load the `*-RCP1_0.cube` field into a suitable volumetric-data viewer.
+- **Color an electronic surface by RCP:** Create an isosurface of `T_e(r)` and color it using `μ_R^τ(r)`. Report the isovalue and color scale.
+- **Assess the reliability of the ratio:** Export `n_EW(r)` and exclude vacuum and orbital-node regions with very small window densities.
+- **Compare local RCP with electron density:** Display fields using the same coordinate system and avoid drawing conclusions solely from global minima or maxima.
 
-### 6.2 Cube間の空白（viewer互換性）
+### 6.2 CUBE whitespace and viewer compatibility
 
-現在のRCPブランチではCube数値の間に空白を入れる修正を適用済み。過去に作成したCubeが一部のviewerで読めない場合は、**再計算せずに**次のツールで空白のみを修正できる。
+The current RCP code writes explicit whitespace between successive numerical CUBE values. If older files cannot be read by some viewers, the existing values can be reformatted **without rerunning CP2K**:
 
 ~~~bash
 cd /path/to/cp2k-rcp
@@ -329,11 +315,11 @@ python3 tools/normalize_cube_spacing.py --dry-run /path/to/cube_directory
 python3 tools/normalize_cube_spacing.py /path/to/cube_directory
 ~~~
 
-ディレクトリを指定した場合はその下のCubeを再帰的に処理する。既存データを扱うときは元のCubeのバックアップを確認する。
+Passing a directory recursively processes CUBE files beneath it. Confirm that backups of valuable original CUBE data exist before using the converter.
 
-## 7. 標準出力の検証
+## 7. Validating the standard output
 
-通常、実行後に次を確認する。
+Inspect the following lines after execution:
 
 ~~~bash
 grep 'SCF run converged' output.out
@@ -341,26 +327,26 @@ grep 'PROGRAM ENDED AT' output.out
 grep '^ RCP|' output.out
 ~~~
 
-**SCF未収束のRCP分布を物理的な結論に使わない。** 次の診断値が表示される（それぞれ対応する計算を有効にした場合）。
+**Do not use an RCP field from an unconverged SCF calculation as the basis for a physical conclusion.** Depending on the enabled fields, the program reports these diagnostics:
 
-| 標準出力の項目（`RCP|`以下） | 解釈 |
+| Output label after `RCP|` | Interpretation |
 |---|---|
-| `Global HOMO`、`Global LUMO` | 窓の準位基準に利用するバンド端 |
-| `HOMO-LUMO midpoint` | smearingなしでの基準 |
-| `Reference chemical potential` | 実際に窓を置いた基準エネルギー（Ha） |
-| `Relative energy window` | 入力で指定した相対窓。標準出力ではHa |
-| `Electron count from sum(weights)` | KS状態の窓占有数とk点重みの総和 |
-| `Electron count from Tr[P_window*S]` | 窓密度行列と重なり行列から求めた電子数 |
-| `Electron count from grid integration` | 窓電子密度の実空間積分 |
-| `\|Tr[P*S]-grid integral\|` | 実空間への変換・collocation・積分の整合性 |
-| `Integral of Laplacian-form T_e` | 全占有Laplacian型運動エネルギーの実空間積分（Ha） |
-| `CP2K kinetic energy` | CP2K内部での運動エネルギー（Ha） |
-| `\|Integral(T_e)-E_kin\|` | 運動エネルギーの独立な整合性チェック |
-| `Window Laplacian component integral` | 窓のLaplacian型運動エネルギー積分 |
-| `Window gradient component integral` | 窓のgradient型運動エネルギー積分 |
-| `Regional energy density integral` | 窓の領域エネルギー密度の体積積分 |
+| `Global HOMO`, `Global LUMO` | Band edges used to construct the energy reference |
+| `HOMO-LUMO midpoint` | Energy reference when SCF smearing is absent |
+| `Reference chemical potential` | Reference `μ` actually used for the window (Ha) |
+| `Relative energy window` | The input relative bounds, printed in Ha |
+| `Electron count from sum(weights)` | Sum of window occupations over KS states and k-point weights |
+| `Electron count from Tr[P_window*S]` | Electron count from the window density and overlap matrices |
+| `Electron count from grid integration` | Real-space integral of the window density |
+| `\|Tr[P*S]-grid integral\|` | Consistency of transformation, collocation, and integration |
+| `Integral of Laplacian-form T_e` | Real-space integral of the all-occupied Laplacian kinetic-energy density (Ha) |
+| `CP2K kinetic energy` | Kinetic energy from the CP2K electronic-structure calculation (Ha) |
+| `\|Integral(T_e)-E_kin\|` | Independent kinetic-energy consistency diagnostic |
+| `Window Laplacian component integral` | Integral of the energy-window Laplacian component |
+| `Window gradient component integral` | Integral of the energy-window gradient component |
+| `Regional energy density integral` | Volume integral of the window regional energy density |
 
-### 7.1 窓電子数の三重チェック
+### 7.1 Three independent electron-count checks
 
 $$
 N_{\rm EW}^{\rm weights}
@@ -370,44 +356,44 @@ N_{\rm EW}^{\rm weights}
 \int n_{\rm EW}(\mathbf r)\,d^3r .
 $$
 
-**3つの値の相互一致を確認**する。窓電子数が総価電子数と一致する必要はない。
+**Check agreement between all three evaluations.** The number of electrons in the selected energy window need not equal the total number of valence electrons.
 
-検証済みH₂の例では、窓をほぼ全価電子状態を含むように広く取ったとき、
+For a validated H₂ example whose window included essentially all occupied valence states:
 
 ~~~text
 RCP| Electron count from grid integration: 2.000000002782
 RCP| Regional energy density integral [a.u.]: -1.134090736496
 ~~~
 
-となった。ただし**数値は指定した窓、構造、基底、k点、計算条件に依存**する。別の系の値が同じになることを要求しない。
+These values **depend on the system, structure, basis, k-point sampling, window, and computational settings** and are not general target values.
 
-### 7.2 運動エネルギーの二重チェック
+### 7.2 Independent kinetic-energy check
 
 $$
 \int T_e(\mathbf r)\,d^3r \stackrel{?}{=} E_{\rm kinetic}^{\rm CP2K}.
 $$
 
-また完全な積分では、適切な境界条件のもとで窓Laplacian成分と窓gradient成分が一致するはず。異常に大きな差が出る場合は、SCF、グリッド、境界条件、k点変換を調べる。
+For a complete integral with suitable boundary conditions, the window Laplacian- and gradient-form kinetic-energy integrals should also agree. Investigate the SCF state, integration grid, boundary conditions, and k-point transformation if the discrepancy is unusually large.
 
-### 7.3 診断値が出ない場合
+### 7.3 Missing diagnostics
 
-`&RCP ON` の指定、`&DFT / &PRINT` の階層、`PRINT_LEVEL`、SCF正常終了、利用中のバイナリのバージョンを確認する。`RCP|`の行があること自体はSCF収束の代用ではない。
+Check that `&RCP ON` appears in the correct `&DFT / &PRINT` section, the output verbosity (`PRINT_LEVEL`), the SCF completion, and the version of the executable. The presence of `RCP|` lines **does not by itself demonstrate SCF convergence**.
 
-## 8. k点収束と表面系の解析
+## 8. k-point convergence and surface analysis
 
-### 8.1 k点数を変えるときに固定する条件
+### 8.1 Conditions to keep fixed when changing the mesh
 
-- **同じ原子配置とセル**（途中で再最適化しない）。
-- 同じ汎関数・基底・擬ポテンシャル・`CUTOFF`・`REL_CUTOFF`。
-- 同じ`SCF EPS_SCF`、smearing、窓上下端、窓のbroadening。
-- 同じ実空間グリッド、`STRIDE`、`DENSITY_CUTOFF`。
-- 同じ観察面と、同じ窓電子密度マスク。
+- **Identical atomic geometry and unit cell**; do not relax the structure separately for each mesh.
+- Same functional, basis, pseudopotential, `CUTOFF`, and `REL_CUTOFF`.
+- Same `SCF EPS_SCF`, SCF smearing, energy-window bounds, and window broadening.
+- Same real-space grid, `STRIDE`, and `DENSITY_CUTOFF`.
+- Same analysis plane and electron-window density mask.
 
-比較する指標は**全エネルギーだけではなく**、窓電子数、窓密度の分布、RCPの断面・等値面・RMS差など。異なるk点数の計算間では同じ座標系での比較が前提。
+Track **more than the total energy**: compare window electron count, spatial window-density distributions, RCP cross sections/isosurfaces, and RMS differences. Comparison between k meshes requires consistent real-space coordinates.
 
-### 8.2 真空・節領域を除く定量比較
+### 8.2 Quantitative comparisons excluding vacuum and nodes
 
-窓密度 `n_EW` の極小領域で `μ_R^τ=ε_{τ,EW}/n_EW` は不安定になりやすい。基準計算の窓密度からマスク `Ω` を作り、**全メッシュで同じ格子点集合**を使って比較する。
+The ratio `μ_R^τ = ε_{τ,EW}/n_EW` becomes unstable when `n_EW` approaches zero. Construct a reference mask `Ω` using the window density from the reference calculation and use **the same set of grid points** for all meshes.
 
 $$
 \Delta_{\rm RMS}(\mathcal K,\mathcal K_{\rm ref})
@@ -420,98 +406,93 @@ $$
 \right]^2}.
 $$
 
-マスク閾値（例えば最大窓密度の0.1%、5%）を変えた結果も確認する。最も細かいk点メッシュは**暫定的な参照**であり、そのメッシュ自身とのRMS差0は収束の証明ではない。
+Test mask thresholds such as 0.1% and 5% of the maximum window density. The densest calculated k mesh is only a **provisional reference**; a zero RMS difference to itself is not evidence that the physical RCP field has converged.
 
-### 8.3 ダイヤモンド(001)の既存検証
+### 8.3 Previous diamond(001) benchmark
 
-開発環境では表面スラブをΓ点から8×8のk点メッシュで評価した。
-ただし、その計算入力・Cube・解析グラフと元の構造データは**この公開パッケージに含まれない**。
-以下の数値は方法論上の参考であり、このパッケージ単体からの再現を保証しない。
+An internal development study compared surface-slab calculations from Gamma-only to `8×8` sampling. **The input files, CUBE fields, analysis graphics, and original structural data are not distributed** with this public release. The following numbers illustrate convergence issues, not a result independently reproducible from this repository alone.
 
-この計算では6×6と8×8の**全エネルギー差は約1.84 meV/セル**まで低下したが、表面RCPのRMS差は**約3.89 eV**残っていた。**RCPのk点収束は8×8まででは確定していない。** このモデルはC₁₀H₄の固定幾何で、底面のH終端が近似的なので、実物質の定量予測にはスラブ厚や緩和構造も再検討すること。
+The total-energy difference between `6×6` and `8×8` was approximately **1.84 meV per cell**, whereas the surface-RCP RMS difference remained approximately **3.89 eV**. **RCP k-point convergence was not demonstrated through 8×8.** The fixed-geometry model contained C₁₀H₄ with approximate bottom hydrogen termination. Quantitative physical predictions would also require reconsidering slab thickness and atomic relaxation.
 
+## 9. Included examples and validation resources
 
-## 9. 既存サンプルと検証データ
+The following paths are relative to the public distribution root `/path/to/cp2k-rcp`.
 
-公開リポジトリルート `/path/to/cp2k-rcp` からの相対パス。
-
-| 用途 | 入力または検証データ |
+| Purpose | Input or validation file |
 |---|---|
-| H₂、非周期Γ点RKS | `examples/h2/H2-rcp.inp` |
-| H₂、周期Γ点RKS | `examples/h2/H2-rcp-gamma-periodic.inp` |
-| H₂、明示的1×1×1 k点 | `examples/h2/H2-rcp-kpoints-1x1x1.inp` |
-| H₂、2×1×1 k点（全格子） | `examples/h2/H2-rcp-kpoints.inp` |
-| H₂、2×1×1 k点（対称性縮約） | `examples/h2/H2-rcp-kpoints-sym.inp` |
-| H₂、UKS singletで複数k点 | `examples/h2/H2-rcp-kpoints-uks.inp` |
-| H₂、k点MPI並列グループ | `examples/h2/H2-rcp-kpoints-parallel.inp` |
-| ベンゼン分子、RKS | `examples/benzene/benzene.inp` |
-| C₂H₅ラジカル、UKS doublet | `examples/c2h5/c2h5.inp` |
+| H₂, isolated, Gamma-point RKS | `examples/h2/H2-rcp.inp` |
+| H₂, periodic Gamma-point RKS | `examples/h2/H2-rcp-gamma-periodic.inp` |
+| H₂, explicit `1×1×1` k mesh | `examples/h2/H2-rcp-kpoints-1x1x1.inp` |
+| H₂, `2×1×1` full k grid | `examples/h2/H2-rcp-kpoints.inp` |
+| H₂, `2×1×1` symmetry-reduced k grid | `examples/h2/H2-rcp-kpoints-sym.inp` |
+| H₂, k-point UKS singlet | `examples/h2/H2-rcp-kpoints-uks.inp` |
+| H₂, k-point MPI groups | `examples/h2/H2-rcp-kpoints-parallel.inp` |
+| Benzene molecule, RKS | `examples/benzene/benzene.inp` |
+| C₂H₅ radical, UKS doublet | `examples/c2h5/c2h5.inp` |
 
-### 9.1 回帰試験の実行結果を確認する
+### 9.1 Checking the k-point regression results
 
-H₂の各k点入力を計算して、必要な`*.out`と`*.cube`を1つの
-`regression-results/` ディレクトリに集めた場合に、SCF診断値とRCP Cubeを再検証できる。
-**検証結果ファイル自体は配布していない。**
+If you have run the H₂ k-point inputs and assembled the required `*.out` and `*.cube` outputs in one `regression-results/` directory, check their SCF diagnostics, real-space integrations, and symmetry consistency using:
 
 ~~~bash
 cd /path/to/cp2k-rcp
 python3 tools/check_kpoint_consistency.py regression-results
 ~~~
 
-既存の数値基準は `examples/h2/TEST_FILES.toml` に記録されている。
+**Precomputed output files are not shipped.** The reference values of the existing CP2K regression cases are recorded in `examples/h2/TEST_FILES.toml`. See [examples/README.md](../examples/README.md) for the required filenames and cases.
 
-### 9.2 自分の計算を保存するとき
+### 9.2 Preserving your calculation metadata
 
-計算条件が分からなくならないよう、少なくとも次を一緒に保存する。
+Record at least the following with your own results:
 
-- CP2Kの入力 `*.inp`、標準出力 `*.out`、SCF収束情報。
-- CP2Kのバイナリ/commitとパッチの版。
-- 基底・擬ポテンシャル、汎関数、格子・原子配置。
-- k点メッシュ、Fermi smearing、窓上下端・窓のbroadening。
-- Cube、`DENSITY_CUTOFF`、`STRIDE`、可視化・比較で使ったマスク条件。
+- CP2K input `*.inp`, standard output `*.out`, and SCF convergence status.
+- CP2K executable/build revision and patch revision.
+- Basis sets, pseudopotentials, functional, lattice, and atomic coordinates.
+- k-point sampling, Fermi smearing, window bounds, and window broadening.
+- CUBE files, `DENSITY_CUTOFF`, `STRIDE`, and masks used in plotting/comparisons.
 
-## 10. トラブルシューティング
+## 10. Troubleshooting
 
-| 症状 | 確認と対処 |
+| Symptom | Check and remedy |
 |---|---|
-| `RCP` が入力として認識されない | パッチを適用した `cp2k.psmp` を使用しているか確認。通常版CP2Kと混同しない。 |
-| `SCF run NOT converged` | まずSCFを収束させる。`EPS_SCF`、`MAX_SCF`、`MIXING`、`ADDED_MOS`、smearingなどを通常のDFT設定として見直す。 |
-| `RCP ENERGY_LOWER must be smaller ...` | `ENERGY_LOWER < ENERGY_UPPER` を指定する。 |
-| `RCP broadenings must be positive` | `BROADENING_LOWER / UPPER` を正にする。 |
-| `RCP ... needs occupied and unoccupied bands` | k点経路で占有/非占有バンドが必要。`ADDED_MOS` や固有状態の本数を確認する。 |
-| RCP Cubeの真空中に巨大値が出る | 窓電子密度と`DENSITY_CUTOFF`を確認。低密度領域を定量比較から除外する。 |
-| Cubeが大きすぎる | `STRIDE 2 2 2`、不要な`PRINT_*`を`F`、分析対象領域を絞る。 |
-| Cube I/Oで進まない、viewerで読めない | `MPI_IO F` を試す。過去のファイルは `normalize_cube_spacing.py` で確認。 |
-| 窓電子数の3通りの値が合わない | SCF、同一k点設定、数値グリッド、積分・行列変換を確認。 |
-| `GAPW ... one-center ... not implemented` | 現行RCPはGPW対象。GAPWの全電子RCPを意味する結果は生成できない。 |
-| `RCP ... relativistic kinetic operator ... not implemented` | 明示的な相対論的運動エネルギー演算子は未対応。 |
-| k点結果がΓ点と大きく違う | 原子配置・周期境界・k点格子の違いを確認し、窓電子数とRCP分布のk点収束を調べる。 |
-| `srun` でMPIエラー | shamでは`mpiexec`を使用し、指定の`I_MPI_*`環境変数を設定する。 |
+| `RCP` input section unrecognized | Use a `cp2k.psmp` binary compiled with the patch, not unmodified CP2K. |
+| `SCF run NOT converged` | Fix the SCF first. Review `EPS_SCF`, `MAX_SCF`, `MIXING`, `ADDED_MOS`, smearing, and ordinary DFT settings. |
+| `RCP ENERGY_LOWER must be smaller ...` | Require `ENERGY_LOWER < ENERGY_UPPER`. |
+| `RCP broadenings must be positive` | Set both window broadenings to positive values. |
+| `RCP ... needs occupied and unoccupied bands` | The k-point path needs occupied and unoccupied bands; check `ADDED_MOS` and the available eigenstates. |
+| Huge RCP values in vacuum | Check window density and `DENSITY_CUTOFF`; exclude very-low-density regions from quantitative comparison. |
+| CUBE files are too large | Try `STRIDE 2 2 2`, disable unnecessary `PRINT_*` flags, or restrict the analysis area. |
+| CUBE writing hangs or a viewer cannot parse a file | Try `MPI_IO F`. Check legacy files using `normalize_cube_spacing.py`. |
+| Three window electron counts disagree | Check SCF, k-point settings, grid integration, and density-matrix transformations. |
+| `GAPW ... one-center ... not implemented` | The current RCP output is GPW-only; all-electron GAPW RCP cannot be produced. |
+| `RCP ... relativistic kinetic operator ... not implemented` | Explicit relativistic kinetic operators are not supported. |
+| k-point results differ substantially from Gamma-only | Check geometry, periodic boundaries, meshes, electron counts, and convergence of the RCP field itself. |
+| `srun` gives an MPI error | Use `mpiexec` and the designated `I_MPI_*` environment settings on sham. |
 
-なお、`DENSITY_CUTOFF` を調節するだけで大きな差を隠すのは避ける。窓密度と領域エネルギー密度の両方を確認し、収束が悪い原因を切り分ける。
+Do not conceal a large discrepancy merely by increasing `DENSITY_CUTOFF`. Examine both the window density and regional energy density to determine why the RCP ratio is sensitive.
 
-## 11. 実行前チェックリスト
+## 11. Pre-run checklist
 
-1. [ ] CP2K 2026.2の**RCP実装済み**バイナリを使う。
-2. [ ] GPW、RKSまたは共線UKSの入力になっている。
-3. [ ] セル・周期性・Poisson解法・基底・擬ポテンシャルが通常のDFTとして適切。
-4. [ ] Γ点か複数k点かを明示し、k点収束を検討した。
-5. [ ] SCFが収束し、必要な非占有バンド数が確保されている。
-6. [ ] 窓の基準 `μ`、`ENERGY_LOWER/UPPER`、broadeningの意味を把握した。
-7. [ ] RCPと同時に`PRINT_DENSITY_WINDOW T`を使い、マスクの妥当性を確認する。
-8. [ ] `PRINT_KINETIC_ENERGY_DENSITY T`が出すのは**全占有**の `T_e` と理解した。
-9. [ ] `RCP|`の電子数・運動エネルギーの診断値をチェックした。
-10. [ ] RCPの単位（Ha）、閾値、Cubeの`STRIDE`、可視化面・色範囲を記録した。
-11. [ ] k点数だけでなくRCP分布そのものの収束を確認した。
-12. [ ] shamでMPIを使う場合は`mpiexec`と必要な環境変数を使う。
+1. [ ] Use a **patched CP2K 2026.2 executable**.
+2. [ ] Use GPW with RKS or collinear UKS.
+3. [ ] Choose a physically sound cell, boundary conditions, Poisson solver, basis, and pseudopotentials.
+4. [ ] Specify Gamma-only or k-point sampling and plan k-point convergence tests.
+5. [ ] Ensure the SCF converges and enough unoccupied bands are available if required.
+6. [ ] Understand the reference `μ`, `ENERGY_LOWER/UPPER`, and broadening.
+7. [ ] Consider `PRINT_DENSITY_WINDOW T` to validate the spatial mask used with RCP.
+8. [ ] Remember that `PRINT_KINETIC_ENERGY_DENSITY T` gives the **all-occupied** `T_e`.
+9. [ ] Examine the `RCP|` electron-count and kinetic-energy checks.
+10. [ ] Record RCP units (Ha), cutoff, `STRIDE`, isovalue, and color scale.
+11. [ ] Demonstrate convergence of the RCP distribution itself, not just total energy.
+12. [ ] On sham, use `mpiexec` with the required MPI environment variables.
 
 ---
 
-**さらに詳しい資料**
+**Further reading and source references**
 
-- [RCP詳細チュートリアル](rcp_tutorial.md) — 定義、各種分子・周期系検証、Cubeの可視化
-- `examples/h2/` — 自動回帰試験入力・基準値
-- ダイヤモンド(001)の検証データは別途管理（公開パッケージに未同梱）
-- [公開README](../README.md) — 導入・パッチ適用手順
-- パッチ適用後のCP2K `src/input_cp2k_print_dft.F` — `&PRINT / &RCP`のキーワード定義
-- パッチ適用後のCP2K `src/qs_energy_window.F` — RCP本体およびΓ点/k点密度行列経路
+- [Detailed RCP tutorial](rcp_tutorial.md): theory, molecular/periodic examples, and visualization.
+- [Public example inputs](../examples/README.md) and `examples/h2/` regression reference values.
+- Diamond(001) benchmark data are held separately and are **not included in this distribution**.
+- [Installation and patch instructions](../README.md).
+- `src/input_cp2k_print_dft.F` in the patched CP2K source: `&PRINT / &RCP` keyword definitions.
+- `src/qs_energy_window.F` in the patched CP2K source: RCP implementation and Gamma/k-point density-matrix paths.

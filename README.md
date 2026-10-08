@@ -40,9 +40,9 @@ The density threshold masks poorly defined ratios in near-vacuum / orbital-node 
 ## Repository contents
 
 - [patches/cp2k-2026.2-rcp.patch](patches/cp2k-2026.2-rcp.patch) — **complete patch**, recommended for installation.
-- [patches/cp2k-2026.2-rcp-series.mbox](patches/cp2k-2026.2-rcp-series.mbox) — the same changes as a Git email patch series, for preserving commit history with `git am`. **Choose one installation method; do not apply both.**
-- [docs/rcp_user_manual.md](docs/rcp_user_manual.md) — practical RCP manual in Japanese: input settings, outputs, sham execution, and checks.
-- [docs/rcp_tutorial.md](docs/rcp_tutorial.md) — detailed theory and original validation notes in Japanese.
+- [patches/cp2k-2026.2-rcp-series.mbox](patches/cp2k-2026.2-rcp-series.mbox) — the same final changes as a **single squashed Git email patch**, installable with `git am` (it does not preserve the separate development commits). **Choose one installation method; do not apply both.**
+- [docs/rcp_user_manual.md](docs/rcp_user_manual.md) — practical RCP manual in English: input settings, outputs, sham execution, and checks.
+- [docs/rcp_tutorial.md](docs/rcp_tutorial.md) — detailed theory and historical validation notes in English.
 - [examples/README.md](examples/README.md) — curated, fully specified CP2K inputs for H2, benzene, and the C2H5 radical.
 - [tools/normalize_cube_spacing.py](tools/normalize_cube_spacing.py) — normalize spacing in older CP2K Gaussian CUBE files without repeating SCF calculations.
 - [tools/check_kpoint_consistency.py](tools/check_kpoint_consistency.py) — check diagnostics and CUBE consistency **after** generating the expected H2 regression outputs.
@@ -51,7 +51,7 @@ The density threshold masks poorly defined ratios in near-vacuum / orbital-node 
 
 No CUBE files or precomputed SCF results are distributed.
 
-Note that the **source patch itself retains the original internal development-tree documentation**, which may mention site-local paths (e.g. `local-sham`). The separate manuals in `docs/` and the sample inputs in `examples/` are the curated public entry points; prefer those for runnable commands.
+The patch also includes an **English in-tree copy of the RCP documentation** under CP2K's `docs/methods/`. The standalone manuals in this repository's `docs/` and the supplied `examples/` are the preferred public entry points; the historical validation examples described in the detailed tutorial are not all distributed.
 
 ## Install the patch
 
