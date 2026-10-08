@@ -226,25 +226,23 @@ Thus **reference chemical potential = SCF Fermi energy**. This is the natural ch
 
 ## 5. Smooth energy-window weights
 
-The energy window is defined by the difference between smooth Fermi functions, not by a discontinuous step function. Conceptually, each KS state has weight
+The energy window is defined by the difference between two smooth Fermi functions, with the result restricted to the interval [0, 1]:
 
 ```math
-w_i
-=
-f(
-\varepsilon_i-\mu;
-E_{\rm upper},
-\sigma_{\rm upper}
-)
--
-f(
-\varepsilon_i-\mu;
-E_{\rm lower},
-\sigma_{\rm lower}
-).
+F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]}.
 ```
 
-The implementation clips the result to the interval [0,1]. A state exactly at a window boundary generally receives a fractional weight when the broadening is finite.
+```math
+\begin{aligned}
+D_{n\mathbf{k}\sigma}
+&=F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})\\
+&\quad-F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}}),\\
+W_{n\mathbf{k}\sigma}
+&=\min\left\{1,\max\left\{0,D_{n\mathbf{k}\sigma}\right\}\right\}.
+\end{aligned}
+```
+
+The restriction to [0, 1] is equivalent to applying a numerical clipping operation. A state exactly at a window boundary generally receives a fractional weight when the broadening is finite.
 
 In a finite-molecule regression test, it may be useful to choose an `ENERGY_UPPER` slightly above 0 eV to include the HOMO almost completely. For surface and metallic systems, using
 

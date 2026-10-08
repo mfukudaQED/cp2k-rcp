@@ -228,15 +228,20 @@ Thus `ENERGY_LOWER [eV] -3.0` and `ENERGY_UPPER [eV] 0.0` select orbital compone
 
 ### 5.2 Smooth energy-window weights
 
-The window selects each KS eigenstate using the difference between two smoothed Fermi functions:
+The window selects each KS eigenstate by subtracting two smoothed Fermi functions and restricting the resulting weight to the interval [0, 1]:
 
 ```math
-F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]},\qquad
-W_{n\mathbf k\sigma}
-=\mathrm{clip}_{[0,1]}\left[
-F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})
--F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}})
-\right].
+F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]}.
+```
+
+```math
+\begin{aligned}
+D_{n\mathbf{k}\sigma}
+&=F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})\\
+&\quad-F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}}),\\
+W_{n\mathbf{k}\sigma}
+&=\min\left\{1,\max\left\{0,D_{n\mathbf{k}\sigma}\right\}\right\}.
+\end{aligned}
 ```
 
 The clipping operation restricts values numerically to [0,1]. **SCF electronic-temperature smearing and RCP's `BROADENING_LOWER/UPPER` are independent.** States near the window edges receive fractional window weights; a noninteger window electron count is therefore not inherently an error.
@@ -327,9 +332,9 @@ grep 'PROGRAM ENDED AT' output.out
 grep '^ RCP|' output.out
 ~~~
 
-**Do not use an RCP field from an unconverged SCF calculation as the basis for a physical conclusion.** Depending on the enabled fields, the program reports these diagnostics:
+**Do not use an RCP field from an unconverged SCF calculation as the basis for a physical conclusion.** Depending on the enabled fields, CP2K reports the following diagnostics. Each label is preceded by the literal output prefix `RCP|`:
 
-| Output label after `RCP|` | Interpretation |
+| Diagnostic label | Interpretation |
 |---|---|
 | `Global HOMO`, `Global LUMO` | Band edges used to construct the energy reference |
 | `HOMO-LUMO midpoint` | Energy reference when SCF smearing is absent |
@@ -338,13 +343,20 @@ grep '^ RCP|' output.out
 | `Electron count from sum(weights)` | Sum of window occupations over KS states and k-point weights |
 | `Electron count from Tr[P_window*S]` | Electron count from the window density and overlap matrices |
 | `Electron count from grid integration` | Real-space integral of the window density |
-| `\|Tr[P*S]-grid integral\|` | Consistency of transformation, collocation, and integration |
+| `Tr[P*S]-grid integral` (absolute difference) | Consistency of transformation, collocation, and integration |
 | `Integral of Laplacian-form T_e` | Real-space integral of the all-occupied Laplacian kinetic-energy density (Ha) |
 | `CP2K kinetic energy` | Kinetic energy from the CP2K electronic-structure calculation (Ha) |
-| `\|Integral(T_e)-E_kin\|` | Independent kinetic-energy consistency diagnostic |
+| `Integral(T_e)-E_kin` (absolute difference) | Independent kinetic-energy consistency diagnostic |
 | `Window Laplacian component integral` | Integral of the energy-window Laplacian component |
 | `Window gradient component integral` | Integral of the energy-window gradient component |
 | `Regional energy density integral` | Volume integral of the window regional energy density |
+
+The two absolute-difference labels include vertical bars in the actual CP2K output:
+
+~~~text
+RCP| |Tr[P*S]-grid integral|:
+RCP| |Integral(T_e)-E_kin| [a.u.]:
+~~~
 
 ### 7.1 Three independent electron-count checks
 

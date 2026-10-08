@@ -151,10 +151,10 @@ index 0000000000..70a5068b4c
 +feature**, not a validated physical relativistic RCP calculation.
 diff --git a/docs/methods/rcp_tutorial.md b/docs/methods/rcp_tutorial.md
 new file mode 100644
-index 0000000000..8f4904925b
+index 0000000000..0641854e57
 --- /dev/null
 +++ b/docs/methods/rcp_tutorial.md
-@@ -0,0 +1,1161 @@
+@@ -0,0 +1,1159 @@
 +# CP2K RCP Tutorial
 +
 +> **Public-release note:** This detailed tutorial documents both the physics and selected historical validation runs from the CP2K `rcp-development` work. References to `DEV_TREE/` or historical `local-sham` datasets denote the **separate development workspace**, not material available in this public repository. Consult the [example index](https://github.com/mfukudaQED/cp2k-rcp/blob/main/examples/README.md) for distributed inputs and the [main README](https://github.com/mfukudaQED/cp2k-rcp) for installable patch instructions.
@@ -383,25 +383,23 @@ index 0000000000..8f4904925b
 +
 +## 5. Smooth energy-window weights
 +
-+The energy window is defined by the difference between smooth Fermi functions, not by a discontinuous step function. Conceptually, each KS state has weight
++The energy window is defined by the difference between two smooth Fermi functions, with the result restricted to the interval [0, 1]:
 +
 +$$
-+w_i
-+=
-+f(
-+\varepsilon_i-\mu;
-+E_{\rm upper},
-+\sigma_{\rm upper}
-+)
-+-
-+f(
-+\varepsilon_i-\mu;
-+E_{\rm lower},
-+\sigma_{\rm lower}
-+).
++F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]}.
 +$$
 +
-+The implementation clips the result to the interval [0,1]. A state exactly at a window boundary generally receives a fractional weight when the broadening is finite.
++$$
++\begin{aligned}
++D_{n\mathbf{k}\sigma}
++&=F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})\\
++&\quad-F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}}),\\
++W_{n\mathbf{k}\sigma}
++&=\min\left\{1,\max\left\{0,D_{n\mathbf{k}\sigma}\right\}\right\}.
++\end{aligned}
++$$
++
++The restriction to [0, 1] is equivalent to applying a numerical clipping operation. A state exactly at a window boundary generally receives a fractional weight when the broadening is finite.
 +
 +In a finite-molecule regression test, it may be useful to choose an `ENERGY_UPPER` slightly above 0 eV to include the HOMO almost completely. For surface and metallic systems, using
 +
@@ -1318,10 +1316,10 @@ index 0000000000..8f4904925b
 +For CP2K's underlying GPW and electronic-structure implementation, see the [CP2K documentation](https://manual.cp2k.org/) and [CP2K citation guidelines](https://www.cp2k.org/howto:citing).
 diff --git a/docs/methods/rcp_user_manual.md b/docs/methods/rcp_user_manual.md
 new file mode 100644
-index 0000000000..6f83271331
+index 0000000000..653540028b
 --- /dev/null
 +++ b/docs/methods/rcp_user_manual.md
-@@ -0,0 +1,498 @@
+@@ -0,0 +1,510 @@
 +# CP2K RCP User Manual (GPW and Collinear Spin)
 +
 +**Applies to:** CP2K 2026.2 with the RCP patch (development branch `rcp-development`).
@@ -1552,15 +1550,20 @@ index 0000000000..6f83271331
 +
 +### 5.2 Smooth energy-window weights
 +
-+The window selects each KS eigenstate using the difference between two smoothed Fermi functions:
++The window selects each KS eigenstate by subtracting two smoothed Fermi functions and restricting the resulting weight to the interval [0, 1]:
 +
 +$$
-+F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]},\qquad
-+W_{n\mathbf k\sigma}
-+=\mathrm{clip}_{[0,1]}\left[
-+F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})
-+-F(\varepsilon_{n\mathbf k\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}})
-+\right].
++F(x;E,\delta)=\frac{1}{1+\exp[(x-E)/\delta]}.
++$$
++
++$$
++\begin{aligned}
++D_{n\mathbf{k}\sigma}
++&=F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{upper}},\delta_{\mathrm{upper}})\\
++&\quad-F(\varepsilon_{n\mathbf{k}\sigma}-\mu;E_{\mathrm{lower}},\delta_{\mathrm{lower}}),\\
++W_{n\mathbf{k}\sigma}
++&=\min\left\{1,\max\left\{0,D_{n\mathbf{k}\sigma}\right\}\right\}.
++\end{aligned}
 +$$
 +
 +The clipping operation restricts values numerically to [0,1]. **SCF electronic-temperature smearing and RCP's `BROADENING_LOWER/UPPER` are independent.** States near the window edges receive fractional window weights; a noninteger window electron count is therefore not inherently an error.
@@ -1651,9 +1654,9 @@ index 0000000000..6f83271331
 +grep '^ RCP|' output.out
 +~~~
 +
-+**Do not use an RCP field from an unconverged SCF calculation as the basis for a physical conclusion.** Depending on the enabled fields, the program reports these diagnostics:
++**Do not use an RCP field from an unconverged SCF calculation as the basis for a physical conclusion.** Depending on the enabled fields, CP2K reports the following diagnostics. Each label is preceded by the literal output prefix `RCP|`:
 +
-+| Output label after `RCP|` | Interpretation |
++| Diagnostic label | Interpretation |
 +|---|---|
 +| `Global HOMO`, `Global LUMO` | Band edges used to construct the energy reference |
 +| `HOMO-LUMO midpoint` | Energy reference when SCF smearing is absent |
@@ -1662,13 +1665,20 @@ index 0000000000..6f83271331
 +| `Electron count from sum(weights)` | Sum of window occupations over KS states and k-point weights |
 +| `Electron count from Tr[P_window*S]` | Electron count from the window density and overlap matrices |
 +| `Electron count from grid integration` | Real-space integral of the window density |
-+| `\|Tr[P*S]-grid integral\|` | Consistency of transformation, collocation, and integration |
++| `Tr[P*S]-grid integral` (absolute difference) | Consistency of transformation, collocation, and integration |
 +| `Integral of Laplacian-form T_e` | Real-space integral of the all-occupied Laplacian kinetic-energy density (Ha) |
 +| `CP2K kinetic energy` | Kinetic energy from the CP2K electronic-structure calculation (Ha) |
-+| `\|Integral(T_e)-E_kin\|` | Independent kinetic-energy consistency diagnostic |
++| `Integral(T_e)-E_kin` (absolute difference) | Independent kinetic-energy consistency diagnostic |
 +| `Window Laplacian component integral` | Integral of the energy-window Laplacian component |
 +| `Window gradient component integral` | Integral of the energy-window gradient component |
 +| `Regional energy density integral` | Volume integral of the window regional energy density |
++
++The two absolute-difference labels include vertical bars in the actual CP2K output:
++
++~~~text
++RCP| |Tr[P*S]-grid integral|:
++RCP| |Integral(T_e)-E_kin| [a.u.]:
++~~~
 +
 +### 7.1 Three independent electron-count checks
 +
