@@ -1,0 +1,49 @@
+"H2-rcp.inp" = [
+  {matcher="M011", tol=1e-10, ref=-1.165977518311587},
+  {matcher="RCP_window_electrons", tol=1e-12, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-2, ref=4.9640328603e-7},
+  {matcher="RCP_regional_energy", tol=1e-8, ref=-1.134090736496},
+]
+
+"H2-rcp-kpoints.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165959652068636},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=4.964822004600e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134217737421},
+]
+
+"H2-rcp-kpoints-sym.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165959652068636},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=4.964821631600e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134217737421},
+]
+
+"H2-rcp-kpoints-1x1x1.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165952649554759},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=4.965081441500e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134275924551},
+]
+
+"H2-rcp-kpoints-uks.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165959652068637},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=4.758574936300e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134217737308},
+]
+
+"H2-rcp-kpoints-parallel.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165959652068636},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=4.964822004600e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134217737421},
+]
+
+"H2-rcp-gamma-periodic.inp" = [
+  {matcher="M011", tol=1e-8, ref=-1.165952649554758},
+  {matcher="RCP_window_electrons", tol=1e-8, ref=2.0},
+  {matcher="RCP_kinetic_error", tol=1e-5, ref=5.324493024300e-07},
+  {matcher="RCP_regional_energy", tol=1e-7, ref=-1.134275935072},
+]
+#EOF

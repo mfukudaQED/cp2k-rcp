@@ -1,0 +1,57 @@
+# Output data / volumetric grids: keep out of Git
+*.cube
+*.cub
+*.cube.gz
+*.cub.gz
+*.wfn
+*.wfn.bak*
+*.restart
+*.restart.*
+*-RESTART*
+*.dcd
+*.ener
+*.pdos
+*.bs
+*.molden
+*.h5
+*.hdf5
+
+# SCF / HPC runtime logs (not source, inputs, or patch files)
+*.out
+*.err
+*.log
+slurm-*.out
+slurm-*.err
+
+# Large or generated result directories
+/runs/
+/results/
+/outputs/
+/output/
+/simulation-data/
+/checkpoints/
+/build/
+/build-*/
+/install/
+/local-sham/
+
+# Python caches, notebook checkpoints, temporary files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.swp
+*.bak
+*.tmp
+*~
+
+# Never commit local credentials
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+/scratch/
+/regression-results/

@@ -1,0 +1,4 @@
+# Patch and mbox files are literal serialized diffs. Embedded diff prefixes and
+# context blank lines are intentional; do not rewrite their bytes.
+patches/*.patch whitespace=-trailing-space,-blank-at-eof
+patches/*.mbox whitespace=-trailing-space,-blank-at-eof
