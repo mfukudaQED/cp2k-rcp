@@ -31,15 +31,9 @@ ls -lh *RCP*.cube
 
 The H₂ examples default to `PRINT_DENSITY_WINDOW F`, so usually three CUBE types are written. Set that keyword to `T` to include the energy-window density CUBE as well.
 
-For an MPI Slurm job on sham:
+This example runs directly from a terminal with a patched CP2K executable. It does not require a batch scheduler or MPI. If your environment provides only `cp2k.ssmp`, use that binary instead. For system-specific parallel execution, follow your own HPC administrator's instructions; an [optional sham-specific note](../docs/sham_notes.md) is available separately.
 
-~~~bash
-cd h2
-sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
-  ../../tools/run_cp2k_sham.slurm H2-rcp.inp H2-rcp.out
-~~~
-
-Adjust job resources in the Slurm template to suit the calculation.
+For a step-by-step explanation written for beginners, see the [Beginner's Quick Start](../docs/rcp_quickstart.md).
 
 ## K-point regression data layout
 

@@ -1,13 +1,15 @@
-From e5bc8916a11f5306f69526ad58a13ddd3cfc63c3 Mon Sep 17 00:00:00 2001
+From db43da6b17ff3adf30f20a013e465aaecf30dca5 Mon Sep 17 00:00:00 2001
 From: Masahiro Fukuda <mfukudaQED@users.noreply.github.com>
-Date: Thu, 8 Oct 2026 16:57:39 +0900
+Date: Thu, 8 Oct 2026 17:19:01 +0900
 Subject: [PATCH] Add RCP analysis extension to CP2K 2026.2
 
 ---
- docs/index.md                                 |    2 +
+ docs/index.md                                 |    3 +
+ docs/methods/rcp_quickstart.md                |  170 +++
+ docs/methods/rcp_sham_notes.md                |   34 +
  .../methods/rcp_spinor_relativistic_design.md |  132 ++
- docs/methods/rcp_tutorial.md                  | 1159 +++++++++++++++++
- docs/methods/rcp_user_manual.md               |  510 ++++++++
+ docs/methods/rcp_tutorial.md                  | 1148 +++++++++++++++++
+ docs/methods/rcp_user_manual.md               |  519 ++++++++
  src/CMakeLists.txt                            |    1 +
  src/grid/common/grid_constants.h              |    1 +
  src/grid/common/grid_prepare_pab.h            |   27 +
@@ -34,7 +36,9 @@ Subject: [PATCH] Add RCP analysis extension to CP2K 2026.2
  tests/QS/regtest-rcp/test_spinor_kernel.f90   |   84 ++
  tests/TEST_DIRS                               |    1 +
  tests/matchers.py                             |    9 +
- 30 files changed, 3561 insertions(+), 43 deletions(-)
+ 32 files changed, 3764 insertions(+), 43 deletions(-)
+ create mode 100644 docs/methods/rcp_quickstart.md
+ create mode 100644 docs/methods/rcp_sham_notes.md
  create mode 100644 docs/methods/rcp_spinor_relativistic_design.md
  create mode 100644 docs/methods/rcp_tutorial.md
  create mode 100644 docs/methods/rcp_user_manual.md
@@ -52,18 +56,235 @@ Subject: [PATCH] Add RCP analysis extension to CP2K 2026.2
  create mode 100644 tests/QS/regtest-rcp/test_spinor_kernel.f90
 
 diff --git a/docs/index.md b/docs/index.md
-index cdd24d5f1b..ac0cfdbfb8 100644
+index cdd24d5f1b..fc92bcdcd9 100644
 --- a/docs/index.md
 +++ b/docs/index.md
-@@ -38,6 +38,8 @@ methods/sampling/index
+@@ -38,6 +38,9 @@ methods/sampling/index
  methods/optimization/index
  methods/electronic_structure/index
  methods/properties/index
++methods/rcp_quickstart
 +methods/rcp_user_manual
 +methods/rcp_tutorial
  ```
  
  ```{toctree}
+diff --git a/docs/methods/rcp_quickstart.md b/docs/methods/rcp_quickstart.md
+new file mode 100644
+index 0000000000..ad214b5f06
+--- /dev/null
++++ b/docs/methods/rcp_quickstart.md
+@@ -0,0 +1,170 @@
++# RCP with CP2K: A Beginner's Quick Start
++
++**Audience:** Readers who are new to density-functional theory (DFT), scientific-computing clusters, or CP2K. This guide uses a small hydrogen molecule and a terminal on an ordinary Linux/macOS workstation or other computer where CP2K is available. **No Slurm scheduler, MPI knowledge, or university computing cluster is required.**
++
++**Estimated task:** Run an already-prepared example and check its outputs. Installing or compiling CP2K can take additional time and may require help from a system administrator.
++
++## 1. What is RCP?
++
++Atoms and molecules contain electrons. Different electronic states contribute to how a molecule interacts with its surroundings. **Regional chemical potential (RCP)** is a way to study *where* selected electrons may make one region of a system different from another.
++
++This CP2K extension calculates RCP on a three-dimensional grid after a normal electronic-structure calculation has finished. It can write grid files that show the selected electron density, a regional energy density, and the resulting RCP. You do **not** need to understand the mathematics to run this tutorial.
++
++Three words you will encounter:
++
++- **Input file (`.inp`):** plain text describing the atoms and the calculation.
++- **Output log (`.out`):** text explaining what CP2K did and whether it converged (i.e., settled on a sufficiently stable answer).
++- **CUBE file (`.cube`):** a three-dimensional grid of numbers that a visualization program can display.
++
++RCP is a research method. An attractive color plot is **not, by itself, proof of adsorption preference or chemical reactivity**.
++
++## 2. What you need
++
++1. A computer with a terminal and a **working executable of CP2K 2026.2 built with the RCP patch**. The normal, unmodified CP2K release will not recognize the `&RCP` input section.
++2. CP2K's standard `BASIS_MOLOPT` and `GTH_POTENTIALS` data files, installed where CP2K can find them.
++3. The files in this public repository, especially `examples/h2/H2-rcp.inp`.
++4. A text editor. A scientific CUBE viewer is optional.
++
++**Already have a patched CP2K installation?** Go directly to Step 3.
++
++**Do not have one?** Follow the [main README](https://github.com/mfukudaQED/cp2k-rcp) to download CP2K 2026.2, apply the patch, and build CP2K using its official installation instructions. The precise build commands depend on your operating system and compiler. On a managed cluster, ask the administrator how to load your patched CP2K build. Do not assume an existing `cp2k.psmp` command is patched.
++
++The examples below use Bash syntax, available on Linux and macOS and in Windows Subsystem for Linux (WSL). On Windows without WSL, adapt the shell commands to your environment.
++
++## 3. Prepare a clean working directory
++
++Open a terminal. First, go to the folder into which you cloned or extracted **this** `cp2k-rcp` repository:
++
++~~~bash
++cd /path/to/cp2k-rcp
++mkdir -p scratch/my_first_rcp
++cp examples/h2/H2-rcp.inp scratch/my_first_rcp/
++cd scratch/my_first_rcp
++~~~
++
++Replace `/path/to/cp2k-rcp` with the actual directory on **your** computer.
++
++This keeps the original input unchanged. The `scratch/` directory is ignored by Git and is not uploaded to GitHub.
++
++## 4. Confirm CP2K is available
++
++If the executable is on your `PATH`, type:
++
++~~~bash
++command -v cp2k.psmp
++~~~
++
++You should see a filesystem path. If nothing is printed, ask your administrator how to load the patched binary, or use its absolute path.
++
++A build may provide `cp2k.ssmp` instead of `cp2k.psmp`, depending on the compilation configuration. Either works for a single-process introductory run **if the binary contains this RCP extension**.
++
++If CP2K cannot locate `BASIS_MOLOPT` or `GTH_POTENTIALS`, the input is not necessarily wrong: configure CP2K's data-file search path or replace these names in a *copy* of the input with valid paths to the installed CP2K data files. See the [CP2K manual](https://manual.cp2k.org/) for your build's data-file setup.
++
++## 5. Run the H₂ example
++
++From `scratch/my_first_rcp/`:
++
++~~~bash
++cp2k.psmp -i H2-rcp.inp -o H2-rcp.out
++~~~
++
++For a build providing only `cp2k.ssmp`, use `cp2k.ssmp` instead. You do not need `mpiexec` or a batch scheduler for this first calculation.
++
++CP2K calculates the electronic structure of a hydrogen molecule and then evaluates the RCP grid. The process may take a little time. Output files are created in the **current directory**.
++
++When it finishes, check:
++
++~~~bash
++grep 'SCF run converged' H2-rcp.out
++grep 'PROGRAM ENDED AT' H2-rcp.out
++grep 'RCP|' H2-rcp.out
++ls -lh *.cube
++~~~
++
++**What should you see?**
++
++- `SCF run converged` means that the *self-consistent field* (SCF) calculation—the repeated steps used to find the electrons' distribution—reached its stopping criterion.
++- `PROGRAM ENDED AT` means CP2K finished normally.
++- Lines beginning with `RCP|` provide diagnostic values from the RCP analysis.
++- The `*.cube` files contain three-dimensional data.
++
++A previously validated execution of this input gave a window electron count close to **2**, as expected when essentially all two H₂ electrons are selected. Small numerical deviations are normal. Exact energies depend on the input, executable, and numerical settings.
++
++## 6. Understand the resulting files
++
++The provided H₂ input uses project name `H2-rcp-regtest`. Its normal default output includes **three CUBE field types**:
++
++| Example filename pattern | Meaning | Unit |
++|---|---|---|
++| `H2-rcp-regtest-RCP1_0.cube` | Regional chemical potential, RCP | Hartree |
++| `H2-rcp-regtest-RCP-KINETIC-ENERGY-DENSITY1_0.cube` | Kinetic-energy density for all occupied states | Hartree per bohr³ |
++| `H2-rcp-regtest-RCP-REGIONAL-ENERGY-DENSITY1_0.cube` | Energy-window regional energy density | Hartree per bohr³ |
++
++The numerical suffix may differ. These are **data**, not image files. A CUBE-capable visualization tool can display slices, surfaces, or color maps.
++
++The fourth optional field is the **energy-window electron density**, enabled by changing
++
++~~~text
++PRINT_DENSITY_WINDOW F
++~~~
++
++to
++
++~~~text
++PRINT_DENSITY_WINDOW T
++~~~
++
++in the **copied** input file and running CP2K again. Its name contains `RCP-DENSITY-WINDOW` and its unit is bohr⁻³.
++
++**Caution:** The provided H₂ input uses `STRIDE 4 4 4`, a coarsely sampled grid chosen to make regression tests quick and compact. It is useful to verify that the program works, **not** for high-quality images or quantitatively converged spatial comparisons.
++
++## 7. Change just one RCP setting
++
++In the input file, find the section
++
++~~~text
++&PRINT
++  &RCP ON
++    ...
++  &END RCP
++&END PRINT
++~~~
++
++The following settings have simple meanings:
++
++| Input keyword | Meaning |
++|---|---|
++| `ENERGY_LOWER` and `ENERGY_UPPER` | Which electronic energy range to select, measured in eV relative to a reference energy |
++| `BROADENING_LOWER` and `BROADENING_UPPER` | How gradually the selection changes near each end |
++| `PRINT_RCP T` | Save the RCP CUBE |
++| `PRINT_DENSITY_WINDOW T` | Also save the selected electron-density CUBE |
++| `STRIDE 4 4 4` | Write every fourth grid point in each direction; `1 1 1` writes every point |
++| `DENSITY_CUTOFF` | Avoid an unstable division in regions with almost no selected electron density |
++| `MPI_IO F` | Choose serial writing for the output CUBEs, even when the main calculation is parallel |
++
++For a first change, set `PRINT_DENSITY_WINDOW T`. If you also change `STRIDE 4 4 4` to `STRIDE 1 1 1`, the generated CUBEs become larger and spatially denser. Keep the original values until the example has run successfully.
++
++**Do not copy a different energy window blindly into a scientific project.** Energy ranges and numerical settings that make sense for H₂ may be inappropriate for an extended surface or metal.
++
++## 8. Common problems
++
++| Problem | What to check |
++|---|---|
++| `cp2k.psmp: command not found` | The CP2K executable is not on your `PATH`. Load the appropriate environment or use an absolute executable path. |
++| CP2K says `RCP` is an unknown input section | You are probably using **unpatched** CP2K. Recheck the build. |
++| CP2K cannot find `BASIS_MOLOPT` or `GTH_POTENTIALS` | Point the input or data-file configuration to your CP2K data directory. |
++| There is no `SCF run converged` line | Do not interpret the RCP result. Inspect the output log for SCF errors. |
++| No CUBE files appear | Check that CP2K finished, `&RCP ON` is present, and the CUBE output flags are `T`. |
++| The CUBE is difficult to visualize | Verify you chose the RCP field (not kinetic energy), and check the plotting range and the density cutoff. |
++| The CUBE looks blocky | This H₂ test uses `STRIDE 4 4 4`. Try `STRIDE 1 1 1` after the first successful run. |
++
++## 9. Where to go next
++
++For a real research calculation, the input must describe your **own physical system** correctly, and you must check SCF, basis/grid, k-point, energy-window, and RCP convergence. A calculation that runs successfully is not necessarily physically reliable.
++
++- [RCP User Manual](rcp_user_manual.md): routine calculations, settings, units, diagnostics, and convergence.
++- [Detailed RCP Tutorial](rcp_tutorial.md): mathematical definitions and worked research examples.
++- [Example inputs](https://github.com/mfukudaQED/cp2k-rcp/blob/main/examples/README.md): H₂, benzene, and a C₂H₅ radical.
++- [Main README](https://github.com/mfukudaQED/cp2k-rcp): patch installation and scope.
++
++**Unsupported:** GAPW/all-electron RCP, explicit relativistic RCP, spin–orbit coupling, and noncollinear spin remain outside the validated features.
+diff --git a/docs/methods/rcp_sham_notes.md b/docs/methods/rcp_sham_notes.md
+new file mode 100644
+index 0000000000..793e11f2d9
+--- /dev/null
++++ b/docs/methods/rcp_sham_notes.md
+@@ -0,0 +1,34 @@
++# Site-specific example: ISSP sham (optional)
++
++**This is an optional platform note, not a prerequisite for RCP.** The main [Quick Start](rcp_quickstart.md), [User Manual](rcp_user_manual.md), and [Detailed Tutorial](rcp_tutorial.md) use a generic CP2K environment and can be followed without a batch scheduler or an ISSP account.
++
++The example below is only for the ISSP sham HPC environment and the Intel MPI setup on which the RCP development tests were run.
++
++## Environment and MPI launch
++
++On that particular system, the working launch configuration was:
++
++~~~bash
++export I_MPI_COLL_EXTERNAL=no
++export I_MPI_FABRICS=shm:ofi
++~~~
++
++MPI execution is launched through `mpiexec` rather than `srun` because of site-specific compatibility issues. **Do not copy these settings to another computer unless its administrator specifically recommends them.**
++
++The distribution includes `tools/run_cp2k_sham.slurm`. This is an optional Slurm template, not a general installation requirement. It expects:
++
++- An installed patched CP2K executable named `cp2k.psmp`;
++- the patched build's environment initialization file, passed as `CP2K_ENV`;
++- Slurm, Intel MPI, and the specific module settings available on sham.
++
++For example, from a directory containing `H2-rcp.inp`:
++
++~~~bash
++sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
++  /path/to/cp2k-rcp/tools/run_cp2k_sham.slurm \
++  H2-rcp.inp H2-rcp.out
++~~~
++
++Choose appropriate resources and paths for the actual job. On **other clusters**, use the scheduler, resource allocation, MPI launch, and environment/module commands recommended by the local administrators.
++
++No RCP input keyword depends on sham. The same physics input can be executed on a supported workstation or a different cluster after CP2K is built correctly there.
 diff --git a/docs/methods/rcp_spinor_relativistic_design.md b/docs/methods/rcp_spinor_relativistic_design.md
 new file mode 100644
 index 0000000000..70a5068b4c
@@ -204,15 +425,15 @@ index 0000000000..70a5068b4c
 +feature**, not a validated physical relativistic RCP calculation.
 diff --git a/docs/methods/rcp_tutorial.md b/docs/methods/rcp_tutorial.md
 new file mode 100644
-index 0000000000..0641854e57
+index 0000000000..4a1dac4062
 --- /dev/null
 +++ b/docs/methods/rcp_tutorial.md
-@@ -0,0 +1,1159 @@
+@@ -0,0 +1,1148 @@
 +# CP2K RCP Tutorial
 +
-+> **Public-release note:** This detailed tutorial documents both the physics and selected historical validation runs from the CP2K `rcp-development` work. References to `DEV_TREE/` or historical `local-sham` datasets denote the **separate development workspace**, not material available in this public repository. Consult the [example index](https://github.com/mfukudaQED/cp2k-rcp/blob/main/examples/README.md) for distributed inputs and the [main README](https://github.com/mfukudaQED/cp2k-rcp) for installable patch instructions.
++> **Public-release note:** This detailed tutorial documents both the physics and selected historical validation runs from the CP2K `rcp-development` work. References to `DEV_TREE/` or historical `local-sham` identify **separately managed historical validation data**, not requirements for running CP2K or material shipped with this public repository. Consult the [example index](https://github.com/mfukudaQED/cp2k-rcp/blob/main/examples/README.md) for distributed inputs and the [main README](https://github.com/mfukudaQED/cp2k-rcp) for installable patch instructions.
 +>
-+> **Start here for routine calculations:** [CP2K RCP User Manual](rcp_user_manual.md). This longer tutorial retains implementation background, individual tests, output definitions, and practical observations.
++> **Start here:** New users should read the [Beginner's Quick Start](rcp_quickstart.md), followed by the [CP2K RCP User Manual](rcp_user_manual.md). This longer tutorial retains implementation background, individual tests, output definitions, and practical observations. The examples and theory apply to patched CP2K on an ordinary workstation or an HPC system; no particular cluster is required.
 +>
 +> **Scope:** GPW RKS and collinear UKS, Gamma-point and general k-point sampling. **Noncollinear spin, SOC, and explicitly relativistic RCP are not supported.**
 +
@@ -980,46 +1201,35 @@ index 0000000000..0641854e57
 +
 +---
 +
-+## 17. Running CP2K with the RCP patch
++## 17. Running CP2K with the RCP patch on any supported computer
 +
-+### 17.1 General execution
++### 17.1 Local or workstation run (no job scheduler)
 +
-+First initialize the environment of your **patched** CP2K build:
-+
-+~~~bash
-+source /path/to/patched-cp2k/install/cp2k_env
-+
-+mpiexec -n 8 cp2k.psmp \
-+  -i input.inp \
-+  -o output.out
-+~~~
-+
-+Use the correct number of ranks, modules, and MPI setup for your system.
-+
-+### 17.2 ISSP sham
-+
-+The public distribution includes a portable sham Slurm template:
-+
-+~~~text
-+tools/run_cp2k_sham.slurm
-+~~~
-+
-+Example from a directory containing `input.inp`:
++First install and compile **CP2K 2026.2 with this RCP patch** according to the [release README](https://github.com/mfukudaQED/cp2k-rcp) and official CP2K build guide. Ensure that the patched executable and its basis/pseudopotential data files are accessible. Neither a cluster nor an MPI launcher is needed to run a single-process H₂ calculation:
 +
 +~~~bash
-+sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
-+  /path/to/cp2k-rcp/tools/run_cp2k_sham.slurm \
-+  input.inp output.out
++cd /path/to/cp2k-rcp
++mkdir -p scratch/tutorial_h2
++cp examples/h2/H2-rcp.inp scratch/tutorial_h2/
++cd scratch/tutorial_h2
++cp2k.psmp -i H2-rcp.inp -o H2-rcp.out
++grep 'SCF run converged' H2-rcp.out
++grep '^ RCP|' H2-rcp.out
 +~~~
 +
-+On sham, the documented working MPI launch uses **`mpiexec` instead of `srun`**, with
++Use `cp2k.ssmp` instead if your patched CP2K build supplies only that executable. You may also use an absolute path to your installed binary. `cp2k_env` files, when provided by the local installation, are **optional environment initialization mechanisms**, not a required part of the RCP implementation. The default H₂ regression case writes three coarsely sampled CUBE fields (`STRIDE 4 4 4`).
++
++### 17.2 Optional MPI and HPC execution
++
++A patched `cp2k.psmp` binary built against an MPI implementation can be run in parallel. For example, on a workstation with compatible MPI tooling:
 +
 +~~~bash
-+export I_MPI_COLL_EXTERNAL=no
-+export I_MPI_FABRICS=shm:ofi
++mpiexec -n 4 cp2k.psmp -i input.inp -o output.out
 +~~~
 +
-+set inside the Slurm job. A separate, pre-existing development wrapper was historically located at `DEV_TREE/local-sham/run_cp2k.slurm` and is **not** required for the public example.
++The command is illustrative, not universally valid. On a cluster, first request resources through the appropriate scheduler (Slurm, PBS, or another site-specific system) and use its recommended MPI launch procedure. Use a CP2K executable linked against the MPI implementation being launched. **Neither the RCP input syntax nor its physics depends on a particular scheduler, machine, or MPI vendor.**
++
++A development-specific Slurm script for the ISSP sham cluster is retained as an [optional platform note](sham_notes.md). Do not apply its Intel MPI settings to other platforms by default.
 +
 +---
 +
@@ -1369,16 +1579,16 @@ index 0000000000..0641854e57
 +For CP2K's underlying GPW and electronic-structure implementation, see the [CP2K documentation](https://manual.cp2k.org/) and [CP2K citation guidelines](https://www.cp2k.org/howto:citing).
 diff --git a/docs/methods/rcp_user_manual.md b/docs/methods/rcp_user_manual.md
 new file mode 100644
-index 0000000000..653540028b
+index 0000000000..5dc033a4b2
 --- /dev/null
 +++ b/docs/methods/rcp_user_manual.md
-@@ -0,0 +1,510 @@
+@@ -0,0 +1,519 @@
 +# CP2K RCP User Manual (GPW and Collinear Spin)
 +
 +**Applies to:** CP2K 2026.2 with the RCP patch (development branch `rcp-development`).
 +**Updated:** 2026-10-08.
 +
-+> This is a practical guide to running RCP calculations, reading the output, and verifying the results. For additional mathematical and implementation details, see the [detailed RCP tutorial](rcp_tutorial.md).
++> This is a practical, platform-independent guide to running RCP calculations, reading the output, and verifying results on a workstation or HPC system. New to CP2K? Start with the [beginner's quick start](rcp_quickstart.md). For mathematical and implementation details, see the [detailed RCP tutorial](rcp_tutorial.md).
 +>
 +> **Noncollinear spin, spin–orbit coupling (SOC), and relativistic approaches such as ZORA and DKH are not currently supported by the RCP implementation.**
 +>
@@ -1386,7 +1596,7 @@ index 0000000000..653540028b
 +
 +### How to use this manual
 +
-+Sections **2–3** cover the first calculation and input syntax; **4–5** explain settings and definitions; **6–8** cover CUBE files, diagnostics, and convergence; **9** identifies examples; **10** addresses problems; and **11** is a pre-run checklist.
++Sections **2–3** cover running CP2K and the input syntax; **4–5** explain settings and definitions; **6–8** cover CUBE files, diagnostics, and convergence; **9** identifies examples; **10** addresses problems; and **11** is a pre-run checklist.
 +
 +## 1. Supported methods and prerequisites
 +
@@ -1405,20 +1615,23 @@ index 0000000000..653540028b
 +
 +RCP is a **post-SCF analysis of a converged DFT electronic state**. It is not a substitute for SCF convergence or geometry optimization.
 +
-+### Selecting the correct executable
++### Selecting the executable and locating CP2K data
 +
-+After applying and compiling the patch, load your patched CP2K environment (adjust the path):
++**Prerequisites:** CP2K 2026.2 with the RCP patch applied, a compiled executable, and access to CP2K's standard basis-set and pseudopotential data files. See the [installation README](https://github.com/mfukudaQED/cp2k-rcp) and the [official CP2K documentation](https://manual.cp2k.org/). The build and environment-setup procedure depends on your operating system and compiler; no specific module system or installation layout is required for RCP.
++
++A build may provide `cp2k.psmp` (MPI/OpenMP) or `cp2k.ssmp` (single process). For a simple serial test, either *patched* binary may be used. Confirm that the selected binary is accessible, for example:
 +
 +~~~bash
-+source /path/to/patched-cp2k/install/cp2k_env
-+which cp2k.psmp
++command -v cp2k.psmp
 +~~~
 +
-+An unmodified CP2K 2026.2 binary cannot be assumed to recognize this experimental RCP input. Use the **patched binary** and follow the [installation README](https://github.com/mfukudaQED/cp2k-rcp) and the official CP2K build instructions.
++If your program is not on `PATH`, run it using an absolute executable path or follow your installation's environment-setup instructions. Some builds provide an environment initialization script such as `install/cp2k_env`, but **that file is not guaranteed to exist**. The input examples reference the standard CP2K data files `BASIS_MOLOPT` and `GTH_POTENTIALS`. If a build cannot find these names, configure its CP2K data-file search path or use absolute data-file paths in a copy of the input.
 +
-+## 2. Run your first RCP calculation on sham
++**Unmodified CP2K does not provide the RCP extension.** A generic system-installed `cp2k.psmp` may therefore be unsuitable even if it runs ordinary DFT calculations.
 +
-+The following are Bash commands. Use a separate working directory so that reference inputs are not overwritten.
++## 2. Running an RCP calculation in a general environment
++
++These commands require a terminal and a **patched CP2K executable**. They use Bash syntax and do **not** require Slurm or MPI execution. Use a separate working directory to avoid overwriting the bundled inputs.
 +
 +### 2.1 Gamma-point H₂ (RKS)
 +
@@ -1428,16 +1641,16 @@ index 0000000000..653540028b
 +cp examples/h2/H2-rcp.inp scratch/h2_gamma/
 +cd scratch/h2_gamma
 +
-+sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
-+  ../../tools/run_cp2k_sham.slurm H2-rcp.inp h2_gamma.out
-+squeue -u "$USER"
++cp2k.psmp -i H2-rcp.inp -o h2_gamma.out
 +
-+# Inspect after the job finishes
++# Inspect the output after CP2K finishes
 +grep 'SCF run converged' h2_gamma.out
 +grep 'PROGRAM ENDED AT' h2_gamma.out
 +grep '^ RCP|' h2_gamma.out
 +ls -lh *.cube
 +~~~
++
++Replace `/path/to/cp2k-rcp` with the location of this repository on your own computer. If your patched executable is called `cp2k.ssmp`, use that instead. These commands run **one process**; they do not assume any local job scheduler.
 +
 +### 2.2 Multiple-k-point H₂ (RKS)
 +
@@ -1446,26 +1659,29 @@ index 0000000000..653540028b
 +mkdir -p scratch/h2_kpoints
 +cp examples/h2/H2-rcp-kpoints.inp scratch/h2_kpoints/
 +cd scratch/h2_kpoints
-+sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
-+  ../../tools/run_cp2k_sham.slurm H2-rcp-kpoints.inp h2_kpoints.out
++
++cp2k.psmp -i H2-rcp-kpoints.inp -o h2_kpoints.out
++grep 'SCF run converged' h2_kpoints.out
++grep '^ RCP|' h2_kpoints.out
 +~~~
 +
-+The latter input uses a full Monkhorst–Pack `2 1 1` k-point grid with complex Bloch orbitals. Both inputs are complete regression-test cases and have been run to normal completion.
++The second example uses a full Monkhorst–Pack `2 1 1` k-point grid and complex Bloch orbitals. The H₂ examples are **small regression tests**, not a converged benchmark for a real material.
 +
-+**Important:** These two H₂ inputs intentionally set `PRINT_DENSITY_WINDOW F` to reduce output volume. They therefore produce **three CUBE field types**, not four. Change the setting to `T` in your copied input if you also want the window-density CUBE. With `PRINT_RCP T`, the window-density numerical integral is nevertheless reported in the standard output.
++**Output count:** The two H₂ inputs set `PRINT_DENSITY_WINDOW F` to minimize storage. By default they write **three types of CUBE fields**; set the keyword to `T` in the working copy if you also want the window-density field. The `RCP|` numerical diagnostics are still printed.
 +
-+### 2.3 sham-specific MPI settings
++**Grid resolution:** The supplied H₂ inputs use `STRIDE 4 4 4` to keep regression CUBE output small. For meaningful spatial visualization or quantitative field comparisons, test `STRIDE 1 1 1` and other numerical-convergence settings.
 +
-+The supplied `tools/run_cp2k_sham.slurm` uses `mpiexec` rather than `srun` to launch MPI. Its essential execution commands are:
++### 2.3 Optional parallel and scheduled execution
++
++Once the serial example works, a patched MPI-enabled CP2K build can typically be run under a suitable MPI launcher. **The launcher and allocation method depend on your system**. For a workstation with a correctly configured MPI environment, an *illustrative* command is:
 +
 +~~~bash
-+export I_MPI_COLL_EXTERNAL=no
-+export I_MPI_FABRICS=shm:ofi
-+export OMP_NUM_THREADS=1
-+mpiexec -n "$SLURM_NTASKS" cp2k.psmp -i input.inp -o output.out
++mpiexec -n 4 cp2k.psmp -i input.inp -o output.out
 +~~~
 +
-+Run these commands **inside a Slurm allocation**. Adjust the number of MPI ranks, OpenMP threads, and wall time through the Slurm options. The excerpt illustrates a simple two-rank, one-thread-per-rank setup.
++Use only the MPI implementation with which your binary was built. On a cluster, first request resources using its scheduler (for example, Slurm, PBS, or another batch system), and follow the local administration's MPI-launch guidance. The input `&RCP` block is identical in serial and parallel jobs; only the execution wrapper changes.
++
++The optional [ISSP sham notes](sham_notes.md) document the specific launcher and environment variables used during development. **Those settings are not general requirements.**
 +
 +## 3. Writing a CP2K input
 +
@@ -1854,7 +2070,8 @@ index 0000000000..653540028b
 +| `GAPW ... one-center ... not implemented` | The current RCP output is GPW-only; all-electron GAPW RCP cannot be produced. |
 +| `RCP ... relativistic kinetic operator ... not implemented` | Explicit relativistic kinetic operators are not supported. |
 +| k-point results differ substantially from Gamma-only | Check geometry, periodic boundaries, meshes, electron counts, and convergence of the RCP field itself. |
-+| `srun` gives an MPI error | Use `mpiexec` and the designated `I_MPI_*` environment settings on sham. |
++| MPI or batch job does not start | Verify the resource allocation, MPI implementation, and launcher recommended for your computing environment. |
++| CP2K cannot find the data files | Confirm that `BASIS_MOLOPT` and `GTH_POTENTIALS` are installed and reachable, or provide their absolute paths in the input. |
 +
 +Do not conceal a large discrepancy merely by increasing `DENSITY_CUTOFF`. Examine both the window density and regional energy density to determine why the RCP ratio is sensitive.
 +
@@ -1871,12 +2088,14 @@ index 0000000000..653540028b
 +9. [ ] Examine the `RCP|` electron-count and kinetic-energy checks.
 +10. [ ] Record RCP units (Ha), cutoff, `STRIDE`, isovalue, and color scale.
 +11. [ ] Demonstrate convergence of the RCP distribution itself, not just total energy.
-+12. [ ] On sham, use `mpiexec` with the required MPI environment variables.
++12. [ ] When using MPI or a batch scheduler, follow the configuration documented for your own system.
 +
 +---
 +
 +**Further reading and source references**
 +
++- [Beginner's Quick Start](rcp_quickstart.md): one-process H₂ calculation for newcomers.
++- [ISSP sham notes](sham_notes.md): optional cluster-specific setup, not needed for ordinary CP2K runs.
 +- [Detailed RCP tutorial](rcp_tutorial.md): theory, molecular/periodic examples, and visualization.
 +- [Public example inputs](https://github.com/mfukudaQED/cp2k-rcp/blob/main/examples/README.md) and `examples/h2/` regression reference values.
 +- Diamond(001) benchmark data are held separately and are **not included in this distribution**.

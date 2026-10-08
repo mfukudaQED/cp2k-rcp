@@ -1,8 +1,8 @@
 # CP2K RCP Tutorial
 
-> **Public-release note:** This detailed tutorial documents both the physics and selected historical validation runs from the CP2K `rcp-development` work. References to `DEV_TREE/` or historical `local-sham` datasets denote the **separate development workspace**, not material available in this public repository. Consult the [example index](../examples/README.md) for distributed inputs and the [main README](../README.md) for installable patch instructions.
+> **Public-release note:** This detailed tutorial documents both the physics and selected historical validation runs from the CP2K `rcp-development` work. References to `DEV_TREE/` or historical `local-sham` identify **separately managed historical validation data**, not requirements for running CP2K or material shipped with this public repository. Consult the [example index](../examples/README.md) for distributed inputs and the [main README](../README.md) for installable patch instructions.
 >
-> **Start here for routine calculations:** [CP2K RCP User Manual](rcp_user_manual.md). This longer tutorial retains implementation background, individual tests, output definitions, and practical observations.
+> **Start here:** New users should read the [Beginner's Quick Start](rcp_quickstart.md), followed by the [CP2K RCP User Manual](rcp_user_manual.md). This longer tutorial retains implementation background, individual tests, output definitions, and practical observations. The examples and theory apply to patched CP2K on an ordinary workstation or an HPC system; no particular cluster is required.
 >
 > **Scope:** GPW RKS and collinear UKS, Gamma-point and general k-point sampling. **Noncollinear spin, SOC, and explicitly relativistic RCP are not supported.**
 
@@ -770,46 +770,35 @@ A small final residual is a strong internal check on the real-space derivative c
 
 ---
 
-## 17. Running CP2K with the RCP patch
+## 17. Running CP2K with the RCP patch on any supported computer
 
-### 17.1 General execution
+### 17.1 Local or workstation run (no job scheduler)
 
-First initialize the environment of your **patched** CP2K build:
-
-~~~bash
-source /path/to/patched-cp2k/install/cp2k_env
-
-mpiexec -n 8 cp2k.psmp \
-  -i input.inp \
-  -o output.out
-~~~
-
-Use the correct number of ranks, modules, and MPI setup for your system.
-
-### 17.2 ISSP sham
-
-The public distribution includes a portable sham Slurm template:
-
-~~~text
-tools/run_cp2k_sham.slurm
-~~~
-
-Example from a directory containing `input.inp`:
+First install and compile **CP2K 2026.2 with this RCP patch** according to the [release README](../README.md) and official CP2K build guide. Ensure that the patched executable and its basis/pseudopotential data files are accessible. Neither a cluster nor an MPI launcher is needed to run a single-process H₂ calculation:
 
 ~~~bash
-sbatch --export=ALL,CP2K_ENV=/path/to/patched-cp2k/install/cp2k_env \
-  /path/to/cp2k-rcp/tools/run_cp2k_sham.slurm \
-  input.inp output.out
+cd /path/to/cp2k-rcp
+mkdir -p scratch/tutorial_h2
+cp examples/h2/H2-rcp.inp scratch/tutorial_h2/
+cd scratch/tutorial_h2
+cp2k.psmp -i H2-rcp.inp -o H2-rcp.out
+grep 'SCF run converged' H2-rcp.out
+grep '^ RCP|' H2-rcp.out
 ~~~
 
-On sham, the documented working MPI launch uses **`mpiexec` instead of `srun`**, with
+Use `cp2k.ssmp` instead if your patched CP2K build supplies only that executable. You may also use an absolute path to your installed binary. `cp2k_env` files, when provided by the local installation, are **optional environment initialization mechanisms**, not a required part of the RCP implementation. The default H₂ regression case writes three coarsely sampled CUBE fields (`STRIDE 4 4 4`).
+
+### 17.2 Optional MPI and HPC execution
+
+A patched `cp2k.psmp` binary built against an MPI implementation can be run in parallel. For example, on a workstation with compatible MPI tooling:
 
 ~~~bash
-export I_MPI_COLL_EXTERNAL=no
-export I_MPI_FABRICS=shm:ofi
+mpiexec -n 4 cp2k.psmp -i input.inp -o output.out
 ~~~
 
-set inside the Slurm job. A separate, pre-existing development wrapper was historically located at `DEV_TREE/local-sham/run_cp2k.slurm` and is **not** required for the public example.
+The command is illustrative, not universally valid. On a cluster, first request resources through the appropriate scheduler (Slurm, PBS, or another site-specific system) and use its recommended MPI launch procedure. Use a CP2K executable linked against the MPI implementation being launched. **Neither the RCP input syntax nor its physics depends on a particular scheduler, machine, or MPI vendor.**
+
+A development-specific Slurm script for the ISSP sham cluster is retained as an [optional platform note](sham_notes.md). Do not apply its Intel MPI settings to other platforms by default.
 
 ---
 

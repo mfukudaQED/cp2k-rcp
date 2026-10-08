@@ -27,11 +27,11 @@ The patch also contains an **isolated experimental Pauli-spinor local kernel** a
 
 For an energy window specified relative to the reference chemical potential, the extension outputs the energy-window electron density and regional energy density and their ratio:
 
-\[
+```math
 \mu_R^\tau(\mathbf r)
   = \frac{\varepsilon_{\tau,\mathrm{EW}}(\mathbf r)}
          {n_{\mathrm{EW}}(\mathbf r)}.
-\]
+```
 
 A separate output provides the Laplacian-form kinetic-energy density from **all occupied states**, useful, for example, for coloring an electronic isosurface with RCP values.
 
@@ -41,8 +41,10 @@ The density threshold masks poorly defined ratios in near-vacuum / orbital-node 
 
 - [patches/cp2k-2026.2-rcp.patch](patches/cp2k-2026.2-rcp.patch) — **complete patch**, recommended for installation.
 - [patches/cp2k-2026.2-rcp-series.mbox](patches/cp2k-2026.2-rcp-series.mbox) — the same final changes as a **single squashed Git email patch**, installable with `git am` (it does not preserve the separate development commits). **Choose one installation method; do not apply both.**
-- [docs/rcp_user_manual.md](docs/rcp_user_manual.md) — practical RCP manual in English: input settings, outputs, sham execution, and checks.
-- [docs/rcp_tutorial.md](docs/rcp_tutorial.md) — detailed theory and historical validation notes in English.
+- [docs/rcp_quickstart.md](docs/rcp_quickstart.md) — **start here if you are new to CP2K or theoretical/computational chemistry**: one-process H₂ example and explanations of output files.
+- [docs/rcp_user_manual.md](docs/rcp_user_manual.md) — platform-independent user manual: executable setup, inputs, outputs, diagnostics, and validation.
+- [docs/rcp_tutorial.md](docs/rcp_tutorial.md) — detailed RCP theory, numerical formulas, and historical validation notes.
+- [docs/sham_notes.md](docs/sham_notes.md) — optional site-specific HPC notes, **not needed on other computers**.
 - [examples/README.md](examples/README.md) — curated, fully specified CP2K inputs for H2, benzene, and the C2H5 radical.
 - [tools/normalize_cube_spacing.py](tools/normalize_cube_spacing.py) — normalize spacing in older CP2K Gaussian CUBE files without repeating SCF calculations.
 - [tools/check_kpoint_consistency.py](tools/check_kpoint_consistency.py) — check diagnostics and CUBE consistency **after** generating the expected H2 regression outputs.
@@ -51,7 +53,7 @@ The density threshold masks poorly defined ratios in near-vacuum / orbital-node 
 
 No CUBE files or precomputed SCF results are distributed.
 
-The patch also includes an **English in-tree copy of the RCP documentation** under CP2K's `docs/methods/`. The standalone manuals in this repository's `docs/` and the supplied `examples/` are the preferred public entry points; the historical validation examples described in the detailed tutorial are not all distributed.
+The patch also includes an **English in-tree copy of the RCP documentation** under CP2K's `docs/methods/`. The beginner guide and standalone manuals in this repository's `docs/`, along with the supplied `examples/`, are the preferred public entry points; the historical validation examples described in the detailed tutorial are not all distributed.
 
 ## Install the patch
 
@@ -86,7 +88,7 @@ Build the patched CP2K source using the [official CP2K build instructions](https
 
 ## Run a minimal example
 
-After building and activating your patched CP2K environment:
+For a fully guided first calculation, see the [beginner's tutorial](docs/rcp_quickstart.md). After installing a patched CP2K executable:
 
 ~~~bash
 cd /path/to/cp2k-rcp/examples/h2
@@ -144,24 +146,11 @@ Check the `RCP|` diagnostics for agreement between electron counts from orbital 
 
 **Convergence warning:** Total-energy convergence with respect to k-point sampling does not by itself imply convergence of the spatial RCP field. Compare RCP on a common grid with a consistent electron-density mask.
 
-## Running on the ISSP sham cluster
+## Running on workstations or HPC systems
 
-The optional [Slurm template](tools/run_cp2k_sham.slurm) uses `mpiexec` rather than `srun` and sets:
+RCP does not require a particular operating-system distribution, scheduler, cluster, or MPI implementation. Start with the [single-process H₂ quick start](docs/rcp_quickstart.md). A typical patched CP2K build can then be used with your local system's MPI launch or batch scheduler if needed; follow the instructions provided for that build.
 
-~~~bash
-export I_MPI_COLL_EXTERNAL=no
-export I_MPI_FABRICS=shm:ofi
-~~~
-
-Set `CP2K_ENV` to the absolute path of your patched CP2K `cp2k_env` file when submitting:
-
-~~~bash
-cd /path/to/cp2k-rcp/examples/h2
-sbatch --export=ALL,CP2K_ENV=/path/to/cp2k/install/cp2k_env \
-  ../../tools/run_cp2k_sham.slurm H2-rcp.inp H2-rcp.out
-~~~
-
-The job template is cluster-specific; other HPC systems may require different MPI / Slurm settings.
+The [ISSP sham-specific notes](docs/sham_notes.md) and the optional `tools/run_cp2k_sham.slurm` template document one known HPC configuration. They **must not be treated as general CP2K requirements**.
 
 ## Reproducing validation
 
